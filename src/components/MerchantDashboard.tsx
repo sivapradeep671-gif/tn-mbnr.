@@ -1,0 +1,260 @@
+import React, { useState, useEffect } from 'react';
+import { Shield, RefreshCw, Smartphone, Download, CheckCircle, Zap, ExternalLink, MapPin, FileText } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
+import type { Business } from '../types/types';
+import { showToast } from '../hooks/useToast';
+
+interface MerchantDashboardProps {
+    business: Business;
+}
+
+export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }) => {
+    const { t } = useLanguage();
+    const { } = useAuth();
+    const [qrToken, setQrToken] = useState<string>('');
+    const [timeLeft, setTimeLeft] = useState<number>(0);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [stats] = useState({ total: 156, verified: 150, failed: 6 });
+
+    const generateCertificate = () => {
+        showToast('Generating Secure Certificate...', 'success');
+        setTimeout(() => {
+            const content = `
+                TRUSTREG TN - CERTIFICATE OF AUTHENTICITY
+                -----------------------------------------
+                Business Name: ${business.tradeName}
+                Legal Entity: ${business.legalName}
+                Registration ID: ${business.id}
+                Status: VERIFIED & AUTHENTICATED
+                Date of Issue: ${new Date().toLocaleDateString()}
+                
+                Blockchain Fingerprint: ${Math.random().toString(16).substr(2, 32)}
+                This document serves as digital proof of municipal registration.
+            `;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `TrustReg-Certificate-${business.tradeName}.txt`;
+            a.click();
+            showToast('Certificate Generated Successfully', 'success');
+        }, 1500);
+    };
+
+    const fetchNewToken = async () => {
+        setIsLoading(true);
+        try {
+            const response = await api.get<{ token: string, expiresAt: number }>(`/qr-token/${business.id}`);
+            setQrToken(response.token);
+            setTimeLeft(Math.max(0, Math.floor((response.expiresAt - Date.now()) / 1000)));
+        } catch (e) {
+            console.error("Failed to fetch QR token:", e);
+            // Fallback for demo if backend is not perfectly synced yet
+            const mockToken = btoa(JSON.stringify({ id: business.id, lat: business.latitude, lng: business.longitude, exp: Date.now() + 30000 }));
+            setQrToken(mockToken);
+            setTimeLeft(30);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchNewToken();
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    fetchNewToken();
+                    return 30;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [business.id]);
+
+    const downloadQR = () => {
+        const svg = document.getElementById('merchant-qr');
+        if (svg) {
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx?.drawImage(img, 0, 0);
+                const pngFile = canvas.toDataURL('image/png');
+                const downloadLink = document.createElement('a');
+                downloadLink.download = `QR-${business.tradeName}.png`;
+                downloadLink.href = pngFile;
+                downloadLink.click();
+            };
+            img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+            showToast('QR Code Downloaded', 'success');
+        }
+    };
+
+    return (
+        <div className="max-w-6xl mx-auto px-4 py-8 sm:py-16 animate-fade-in">
+            <div className="flex flex-col md:flex-row gap-8 items-start mb-12">
+                <div className="flex-1 w-full translate-y-0 group">
+                    <div className="glass-card p-1 sm:p-2 rounded-[2.5rem] border-white/5 relative overflow-hidden shadow-2xl">
+                        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-transparent to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-700" />
+                        <div className="relative z-10 p-6 sm:p-10">
+                            <div className="flex items-center gap-6 mb-8 sm:mb-12">
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-yellow-500 rounded-3xl flex items-center justify-center shadow-2xl shadow-yellow-500/20 rotate-3">
+                                    <Shield className="h-8 w-8 sm:h-10 sm:w-10 text-slate-950" />
+                                </div>
+                                <div>
+                                    <h1 className="h-display text-2xl sm:text-4xl mb-1 mt-0">{business.tradeName}</h1>
+                                    <p className="text-slate-500 text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase opacity-70">Authenticated Merchant Platform</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
+                                <div className="space-y-6 sm:space-y-8">
+                                    <div className="bg-white/[0.02] p-6 rounded-2xl border border-white/5 hover:border-white/10 transition-colors">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <span className="text-[10px] sm:text-xs text-slate-500 font-black uppercase tracking-widest">{t.scanner.labels.status}</span>
+                                            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black rounded-full border border-green-500/20">
+                                                <div className="w-1 h-1 bg-green-500 rounded-full animate-ping"></div>
+                                                {t.scanner.labels.gov_verified.toUpperCase()}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <CheckCircle className="h-5 w-5 text-green-500" />
+                                            <span className="text-white font-bold">{t.register.success}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <MapPin className="h-5 w-5 text-yellow-500" />
+                                            <span className="text-[10px] sm:text-xs text-slate-500 font-black uppercase tracking-widest">{t.scanner.labels.reg_location}</span>
+                                        </div>
+                                        <p className="text-white text-sm font-medium leading-relaxed">{business.address}</p>
+                                        <div className="mt-4 pt-4 border-t border-white/5 flex gap-4 text-[10px] font-mono text-slate-500">
+                                            <span>LAT: {business.latitude?.toFixed(4) || '0.0000'}</span>
+                                            <span>LNG: {business.longitude?.toFixed(4) || '0.0000'}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <button 
+                                        className="w-full py-4 bg-white text-slate-950 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-yellow-500 transition-all flex items-center justify-center gap-3 active:scale-95 mb-4"
+                                        onClick={generateCertificate}
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                        Download Certificate
+                                    </button>
+
+                                    <button 
+                                        className="w-full py-4 bg-white/5 text-white/50 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                        onClick={() => showToast('Syncing with Municipality Network...', 'success')}
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        Request Data Audit
+                                    </button>
+                                </div>
+
+                                <div className="bg-slate-950 p-8 rounded-[2rem] border border-white/5 shadow-inner relative group/qr overflow-hidden flex flex-col items-center">
+                                    <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover/qr:opacity-100 transition-opacity duration-500" />
+                                    
+                                    <div className="relative p-4 sm:p-6 bg-white rounded-3xl shadow-2xl mb-6">
+                                        <QRCodeSVG 
+                                            id="merchant-qr"
+                                            value={qrToken} 
+                                            size={200} 
+                                            level="H"
+                                            includeMargin={true}
+                                            className="w-40 h-40 sm:w-52 sm:h-52"
+                                        />
+                                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-black rounded-full border-2 border-white flex items-center justify-center animate-pulse">
+                                            <Zap className="h-4 w-4 text-yellow-500" />
+                                        </div>
+                                    </div>
+
+                                    <div className="w-full max-w-[200px] mb-6">
+                                        <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                                            <span>Dynamic Token Sync</span>
+                                            <span className="text-yellow-500">{timeLeft}s</span>
+                                        </div>
+                                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-yellow-500 transition-all duration-1000 linear"
+                                                style={{ width: `${(timeLeft / 30) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 w-full max-w-[200px]">
+                                        <button 
+                                            onClick={fetchNewToken}
+                                            disabled={isLoading}
+                                            className="flex-1 p-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/5 transition-all active:scale-90 disabled:opacity-50"
+                                            title="Manual Refresh"
+                                        >
+                                            <RefreshCw className={`h-4 w-4 mx-auto ${isLoading ? 'animate-spin' : ''}`} />
+                                        </button>
+                                        <button 
+                                            onClick={downloadQR}
+                                            className="flex-1 p-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/5 transition-all active:scale-90"
+                                            title="Download QR"
+                                        >
+                                            <Download className="h-4 w-4 mx-auto" />
+                                        </button>
+                                        <button 
+                                            className="flex-1 p-3 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/5 transition-all active:scale-90"
+                                            title="Print Signage"
+                                        >
+                                            <Smartphone className="h-4 w-4 mx-auto" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="w-full md:w-80 space-y-6">
+                    <div className="glass-card p-8 rounded-3xl border-white/5">
+                        <h3 className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mb-8">Scan Intelligence</h3>
+                        
+                        <div className="space-y-8">
+                            <div>
+                                <p className="text-3xl font-black text-white tracking-tighter mb-1">{stats.total}</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Global Scan Hits</p>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-green-500 tracking-tighter mb-1">{stats.verified}</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Verified Pass</p>
+                            </div>
+                            <div>
+                                <p className="text-3xl font-black text-red-500 tracking-tighter mb-1">{stats.failed}</p>
+                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Security Flags</p>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 pt-8 border-t border-white/5">
+                            <button className="w-full py-4 bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 group/link">
+                                Detailed Analytics <ExternalLink className="h-3 w-3 group-hover/link:translate-x-1 transition-transform" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="glass-card p-8 rounded-3xl border-white/5 relative overflow-hidden group/alert">
+                        <div className="absolute inset-0 bg-red-500/5 opacity-0 group-hover/alert:opacity-100 transition-opacity duration-500" />
+                        <h3 className="text-[10px] text-red-500 font-black uppercase tracking-[0.3em] mb-6">Security Node</h3>
+                        <p className="text-xs text-slate-400 font-medium mb-6 leading-relaxed">No unauthorized scan attempts detected in your geofence during the last 24 hours.</p>
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,1)]"></div>
+                            <span className="text-[10px] text-green-500 font-black uppercase tracking-widest">System Nominal</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

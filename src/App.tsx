@@ -25,6 +25,7 @@ const TechArchitecture = lazy(() => import('./components/TechArchitecture').then
 const HackathonJury = lazy(() => import('./components/HackathonJury').then(m => ({ default: m.HackathonJury })));
 const DemoControls = lazy(() => import('./components/DemoControls').then(m => ({ default: m.DemoControls })));
 const MerchantDashboard = lazy(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })));
+const AIAssistant = lazy(() => import('./components/extensions/AIAssistant').then(m => ({ default: m.AIAssistant })));
 
 const APP_VERSION = '1.1.0 (Senior Build)';
 
@@ -114,7 +115,7 @@ function AppContent() {
             case 'REGISTER':
               return <BusinessRegistration onRegister={registerBusiness} businesses={businesses} />;
             case 'MAP':
-              return <MapExplorer businesses={businesses} />;
+              return <MapExplorer businesses={businesses} reports={reports} />;
             case 'REPORT':
               return <CitizenReport prefillName={reportPrefill} />;
             case 'SCAN':
@@ -169,6 +170,8 @@ function AppContent() {
           renderContent()
         )}
       </main>
+
+      <AIAssistant />
 
       <footer className="max-w-4xl mx-auto px-4 py-12 text-center">
         <p className="mb-4 text-slate-400 font-medium italic">"Scan once, know the truth."</p>

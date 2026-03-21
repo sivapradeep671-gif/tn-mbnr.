@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { Shield, CheckCircle, AlertTriangle, Trophy, Star, Zap, Smartphone, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import type { Business } from '../types/types';
 import { verifyMockToken } from '../utils/mockQR';
-
 import { announceStatus } from '../utils/voiceUtils';
+import { showToast } from '../hooks/useToast';
+import type { ScanResult } from '../types/scan';
+import { api } from '../api/client';
+import { notificationService } from '../services/notificationService';
 
 interface QRScannerProps {
     businesses: Business[];
@@ -13,7 +16,7 @@ interface QRScannerProps {
 
 export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
     const { t } = useLanguage();
-    const [scanResult, setScanResult] = useState<any | null>(null);
+    const [scanResult, setScanResult] = useState<ScanResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [xp, setXp] = useState(0);
     const [showArOverlay] = useState(true);
@@ -25,22 +28,21 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
             {
                 fps: 10,
                 qrbox: { width: 250, height: 250 },
-                // Force back camera on mobile devices
                 aspectRatio: 1.0,
                 videoConstraints: {
                     facingMode: { ideal: "environment" }
                 }
             },
-            /* verbose= */ false
+            false
         );
 
-        scanner.render(onScanSuccess, onScanFailure);
-
-        function onScanSuccess(decodedText: string, _decodedResult: any) {
+        const onScanSuccess = async (decodedText: string) => {
             scanner.clear();
 
             if (!navigator.geolocation) {
-                setError("Enable location"); // Shortened for mobile
+                const msg = "Enable location";
+                setError(msg);
+                showToast(msg, 'warning');
                 return;
             }
 
@@ -48,21 +50,14 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                 try {
                     const { latitude, longitude } = position.coords;
 
-                    // --- 1. Server-Side Verification (Counterfeit & Distance Check) ---
+                    // --- 1. Server-Side Verification ---
                     try {
-                        const response = await fetch('/api/verify-scan', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                token: decodedText,
-                                scannerLocation: { lat: latitude, lng: longitude }
-                            })
+                        const serverResult = await api.post<ScanResult>('/verify-scan', {
+                            token: decodedText,
+                            scannerLocation: { lat: latitude, lng: longitude }
                         });
 
-                        const serverResult = await response.json();
-
                         if (serverResult.status !== 'ERROR' && serverResult.status !== 'INVALID') {
-                            // Server returned a definitive result (VALID, EXPIRED, LOCATION_MISMATCH, COUNTERFEIT)
                             setScanResult(serverResult);
                             handleScanResult(serverResult);
                             return;
@@ -72,10 +67,9 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                     }
 
                     // --- 2. Fallback: Local/Mock Verification ---
-                    // 1. Check for Exact Match in State
                     let foundBusiness = businesses.find(b => b.id === decodedText || b.tradeName.toLowerCase() === decodedText.toLowerCase());
 
-                    let result: any;
+                    let result: ScanResult;
                     if (foundBusiness && foundBusiness.status === 'Verified') {
                         result = {
                             status: 'VALID',
@@ -90,18 +84,15 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                             }
                         };
                     } else {
-                        // 2. Try Mock Verification for Dynamic Tokens
-                        result = verifyMockToken(decodedText, { lat: latitude, lng: longitude });
+                        // Dynamic mock verification
+                        result = verifyMockToken(decodedText, { lat: latitude, lng: longitude }) as ScanResult;
                     }
 
                     // 3. Look-alike Detection (Fraud Prevention)
-                    // If not valid, check if the decoded text "looks like" a known verified business
                     if (result.status !== 'VALID') {
                         const suspiciousMatch = businesses.find(b => {
                             const name = b.tradeName.toLowerCase();
                             const scan = decodedText.toLowerCase();
-                            // Heuristic: First 2 chars match, length is similar, but not an exact match
-                            // This catches KPM vs KPN
                             return (name.substring(0, 2) === scan.substring(0, 2) &&
                                 Math.abs(name.length - scan.length) <= 2 &&
                                 scan !== name);
@@ -117,39 +108,55 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                     handleScanResult(result);
 
                 } catch (e) {
-                    setError("Service unavailable");
+                    const msg = "Service unavailable";
+                    setError(msg);
+                    showToast(msg, 'error');
                 }
             }, (err) => {
                 console.error(err);
-                setError("Enable location");
+                const msg = "Enable location";
+                setError(msg);
+                showToast(msg, 'warning');
             });
-        }
+        };
 
-        function onScanFailure(error: any) {
+        const onScanFailure = (error: any) => {
             if (error?.message?.includes("permission")) {
                 setError("Camera access needed");
             }
-        }
+        };
+
+        scanner.render(onScanSuccess, onScanFailure);
 
         return () => {
-            // Cleanup handled by scanner.clear() usually, but safe to try catch
             try { scanner.clear(); } catch (e) { }
         };
-    }, [businesses]);
+    }, [businesses, t]);
 
-    const handleScanResult = (result: any) => {
+    const handleScanResult = (result: ScanResult) => {
         if (result.status === 'VALID') {
             setXp(prev => prev + 50);
             if ('vibrate' in navigator) navigator.vibrate(100);
             announceStatus('VALID', result.business?.name);
+            showToast('Scan Verified Successfully', 'success');
         } else {
             if ('vibrate' in navigator) navigator.vibrate([300, 100, 300]);
             announceStatus(result.status, result.business?.name);
 
             if (result.status === 'COUNTERFEIT') {
-                // Simulate SMS Alert
                 setSmsSent(`CMS Alert Sent to Owner: ${result.business?.name || 'Unknown Shop'}`);
+                showToast('Potential Counterfeit Detected!', 'error');
+                
+                // Trigger real-time alert to merchant
+                notificationService.alertOwner(
+                    result.business?.name || "Emergency node",
+                    "0000000001", // Mocked phone for demo
+                    "Potential counterfeit QR scan attempt"
+                );
+                
                 setTimeout(() => setSmsSent(null), 5000);
+            } else {
+                showToast(result.message, 'warning');
             }
         }
     };
@@ -161,7 +168,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
         window.location.reload();
     };
 
-    // Village Proofing: Traffic Light UI Helper
     const getTrustColorClass = (status: string) => {
         switch (status) {
             case 'VALID': return 'bg-green-500 shadow-neon-green';
@@ -189,7 +195,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                 {!scanResult && !error && (
                     <div className="max-w-md mx-auto bg-slate-950 p-2 sm:p-4 rounded-xl border border-slate-800">
                         <div id="reader" className="w-full relative overflow-hidden rounded-lg min-h-[250px] bg-slate-900">
-                            {/* Library injects video here */}
                             {showArOverlay && (
                                 <div className="absolute inset-0 pointer-events-none z-10 flex flex-col items-center justify-center">
                                     <div className="w-56 h-56 border-2 border-yellow-500/50 rounded-lg relative animate-pulse">
@@ -224,7 +229,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                             'bg-red-900/20 border-red-500/30'
                         }`}>
 
-                        {/* Village Proofing: Traffic Light UI Indicator */}
                         <div className="flex justify-center gap-4 sm:gap-6 mb-8 sm:mb-10 p-4 bg-slate-950/50 rounded-3xl border border-slate-800/50 overflow-x-auto">
                             <div className="flex flex-col items-center gap-2">
                                 <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-full border-4 border-slate-800 transition-all duration-500 ${scanResult.status === 'VALID' ? 'bg-green-500 shadow-neon-green scale-110 animate-pulse' : 'bg-green-900/10 opacity-20'}`}></div>
@@ -341,8 +345,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                             </button>
 
                             <button
-                                //@ts-ignore - Passed from App
-                                onClick={() => window.onReportBusiness?.(scanResult.business?.name || decodedText)}
+                                onClick={() => (window as any).onReportBusiness?.(scanResult.business?.name || '')}
                                 className="w-full sm:w-auto px-6 py-3 min-h-[48px] bg-red-900/30 hover:bg-red-900/50 text-red-500 rounded-lg font-bold border border-red-500/30 transition-all active:scale-95"
                             >
                                 {t.scanner.actions.report}

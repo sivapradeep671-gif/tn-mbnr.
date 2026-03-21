@@ -1,3 +1,5 @@
+export type LicenseStatus = 'ACTIVE' | 'GRACE' | 'PENDING' | 'EXPIRED' | 'BLOCKED';
+
 export interface Business {
     id: string;
     legalName: string;
@@ -26,7 +28,7 @@ export interface Business {
     grace_ends_at?: string; // ISO date string
     pay_by_date?: string; // ISO date string
     payment_done?: number; // 0 or 1 (SQLite boolean)
-    license_status?: 'ACTIVE' | 'GRACE' | 'PENDING' | 'EXPIRED' | 'BLOCKED';
+    license_status?: LicenseStatus;
     // Municipality Tax Fields
     assessment_number?: string;
     water_connection_no?: string;
@@ -45,6 +47,7 @@ export interface AnalysisResult {
 export interface CitizenReport {
     id: string;
     businessName: string;
+    business_name?: string; // Matching backend naming
     location: string;
     description: string;
     category?: string;
@@ -52,4 +55,6 @@ export interface CitizenReport {
     imageUrl?: string;
     status: 'Submitted' | 'Under Review' | 'Resolved';
     timestamp: string;
+    latitude?: number;
+    longitude?: number;
 }

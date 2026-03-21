@@ -106,7 +106,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
             description TEXT,
             category TEXT,
             severity TEXT,
-            status TEXT DEFAULT 'OPEN',
+            status TEXT DEFAULT 'Submitted',
             image_path TEXT,
             timestamp TEXT DEFAULT (datetime('now'))
         )`, (err) => {

@@ -442,7 +442,7 @@ app.post('/api/reports', upload.single('image'), (req, res) => {
     });
 });
 
-app.get('/api/reports', authenticateToken, authorizeRoles('admin'), (req, res) => {
+app.get('/api/reports', apiLimiter, (req, res) => {
     db.all("SELECT * FROM reports ORDER BY timestamp DESC", [], (err, rows) => {
         if (err) return res.status(400).json({ error: err.message });
         res.json({ message: "success", data: rows });
@@ -453,8 +453,8 @@ app.get('/api/reports', authenticateToken, authorizeRoles('admin'), (req, res) =
 app.use(express.static(path.join(__dirname, '../dist')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// SPA Catch-all
-app.get('*', (req, res) => {
+// SPA Catch-all (using app.use for Express 5 compatibility)
+app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 

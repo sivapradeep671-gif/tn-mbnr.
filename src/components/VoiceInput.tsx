@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mic, MicOff } from 'lucide-react';
+import { showToast } from '../hooks/useToast';
 
 interface VoiceInputProps {
     onResult: (text: string) => void;
@@ -18,14 +19,14 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder = 
 
     const startListening = () => {
         if (!isSupported) {
-            alert("Voice input is not supported in this browser.");
+            showToast("Voice input is not supported in this browser.", "warning");
             return;
         }
 
         const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
         const recognition = new SpeechRecognition();
 
-        recognition.lang = 'en-US'; // Default to English, could be dynamic
+        recognition.lang = 'en-US';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
@@ -37,11 +38,13 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder = 
             const transcript = event.results[0][0].transcript;
             onResult(transcript);
             setIsListening(false);
+            showToast("Speech captured", "success");
         };
 
         recognition.onerror = (event: any) => {
             console.error("Speech recognition error", event.error);
             setIsListening(false);
+            showToast(`Speech error: ${event.error}`, "error");
         };
 
         recognition.onend = () => {

@@ -1,44 +1,32 @@
-# TN-MBNR: TrustReg TN - QR-Based Business Verification System
+# 💎 TN-MBNR: TrustReg TN
+### Enterprise-Grade Business Intelligence & Fraud Prevention
 
-[![CI/CD Pipeline](https://github.com/YOUR_USERNAME/TN-MBNR/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/YOUR_USERNAME/TN-MBNR/actions)
-[![Tests](https://img.shields.io/badge/tests-39%20passing-brightgreen)](https://github.com/YOUR_USERNAME/TN-MBNR/actions)
-[![Test Coverage](https://img.shields.io/badge/coverage-expanding-blue)](https://github.com/YOUR_USERNAME/TN-MBNR)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-6.x-purple.svg)](https://vitejs.dev/)
+[![CI/CD Pipeline](https://github.com/yourusername/TN-MBNR/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/yourusername/TN-MBNR/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![AI-Powered](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-orange.svg)](https://deepmind.google/technologies/gemini/)
 
-> **Tamil Nadu Municipal Business Number Registry** - A blockchain-enabled QR verification system for preventing business fraud and protecting citizens.
+**TN-MBNR (TrustReg TN)** is a high-fidelity, blockchain-enabled civic platform designed for the **Tamil Nadu Government**. It leverages Artificial Intelligence and Cryptographic Ledgers to prevent business fraud, protect small entrepreneurs, and provide citizens with a "Single Source of Truth" for commercial verification.
 
 ---
 
-## 🎯 Overview
+## 🌟 Strategic Features
 
-TN-MBNR is a comprehensive fraud detection system that enables:
-- **Businesses** to register and generate dynamic QR codes
-- **Citizens** to verify business authenticity via QR scanning
-- **Municipal Officials** to monitor fraud patterns and approve registrations
+### 🏢 Municipal Logic
+- **Advanced Registration**: GPS-verified business onboarding with Gemini AI-powered risk scoring.
+- **Verification Grid**: Multi-layered authenticity checks (GPS, Signature, Timestamp).
 
-### Key Features
+### 🛡️ Fraud Prevention
+- **Spatial Intelligence**: Real-time fraud detection map (Leaflet) with geolocation mismatch monitoring.
+- **Dynamic QR Network**: Signed HMAC tokens with 30-second sliding windows and 200m geofencing.
 
-✅ **5-Flow Workflow System**
-1. Business Registration with GPS verification
-2. Dynamic QR Generation (30-second expiry)
-3. Citizen Verification with Geofencing (200m radius)
-4. Admin Dashboard with fraud detection
-5. Automated fraud alerts and analytics
+### ⛓️ Governance & AI
+- **Immutable Ledger**: Proof-of-Work blockchain trail recording every commercial entry.
+- **AI Triage**: Automated severity classification of citizen fraud reports using **Gemini 2.0 Flash**.
 
-✅ **Fraud Detection**
-- Real-time scan tracking and logging
-- Interactive map visualization (Leaflet)
-- Suspicious scan alerts
-- Top risky shops analytics
-
-✅ **Security**
-- Signed QR tokens with HMAC
-- Time-based expiry
-- GPS-based geofencing
-- Blockchain audit trail
+### 🎨 Senior Designer Visuals
+- **Glassmorphism UI**: High-fidelity professional aesthetic using HSL design tokens and Google Fonts (Outfit & Inter).
+- **Micro-animations**: Staggered entry effects and reactive UI states for a world-class experience.
 
 ---
 

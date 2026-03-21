@@ -16,11 +16,11 @@ export const useBusinesses = () => {
         try {
             const [bizRes, reportsRes] = await Promise.all([
                 api.get<BusinessListResponse>('/businesses'),
-                api.get<{ reports: any[] }>('/reports')
+                api.get<{ data: any[] }>('/reports')
             ]);
             
             if (bizRes.data) setBusinesses(bizRes.data);
-            if (reportsRes.reports) setReports(reportsRes.reports);
+            if (reportsRes.data) setReports(reportsRes.data);
         } catch (err: any) {
             setError(err.message);
             showToast('Sync failed', 'error');

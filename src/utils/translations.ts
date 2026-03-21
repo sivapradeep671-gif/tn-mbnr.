@@ -205,6 +205,26 @@ export const translations = {
                 "Community-driven verification empowers citizens"
             ],
             roadmap: "Future: Integration with GST, UDYAM, and statewide roll-out."
+        },
+        citizen_reg: {
+            title: "Citizen Access",
+            subtitle: "Secure your digital identity on the regional trust grid to verify commercial assets and report anomalies.",
+            initiate: "Initiate KYC Verification",
+            step2_title: "Identity Match",
+            step2_subtitle: "Biometric Aadhaar Linkage",
+            labels: {
+                aadhaar: "Aadhaar Number",
+                mobile: "Mobile Number (Linked)"
+            },
+            placeholders: {
+                aadhaar: "XXXX XXXX XXXX",
+                mobile: "+91 XXXXX XXXXX"
+            },
+            submit: "Generate Secure OTP",
+            verifying: "Verifying Node Access...",
+            success_title: "Registration Complete",
+            success_subtitle: "Your citizen profile is now verified. Access to regional scanning and anomaly reporting is activated.",
+            enter: "Enter Command Center"
         }
     },
     ta: {
@@ -413,6 +433,26 @@ export const translations = {
                 "சமூக அடிப்படையிலான சரிபார்ப்பு"
             ],
             roadmap: "எதிர்காலம்: GST மற்றும் UDYAM ஒருங்கிணைப்பு."
+        },
+        citizen_reg: {
+            title: "குடிமக்கள் அணுகல்",
+            subtitle: "வணிகச் சொத்துக்களைச் சரிபார்க்கவும் முறைகேடுகளைப் புகாரளிக்கவும் பிராந்திய நம்பிக்கை கிரிட்டில் உங்களின் டிஜிட்டல் அடையாளத்தைப் பாதுகாக்கவும்.",
+            initiate: "KYC சரிபார்ப்பைத் தொடங்கவும்",
+            step2_title: "அடையாளப் பொருத்தம்",
+            step2_subtitle: "பயோமெட்ரிக் ஆதார் இணைப்பு",
+            labels: {
+                aadhaar: "ஆதார் எண்",
+                mobile: "மொபைல் எண் (இணைக்கப்பட்டது)"
+            },
+            placeholders: {
+                aadhaar: "XXXX XXXX XXXX",
+                mobile: "+91 XXXXX XXXXX"
+            },
+            submit: "பாதுகாப்பான OTP ஐ உருவாக்கவும்",
+            verifying: "அணுகல் சரிபார்க்கப்படுகிறது...",
+            success_title: "பதிவு முடிந்தது",
+            success_subtitle: "உங்கள் குடிமகன் சுயவிவரம் இப்போது சரிபார்க்கப்பட்டது. பிராந்திய ஸ்கேனிங் மற்றும் புகாரளிக்கும் அணுகல் செயல்படுத்தப்பட்டது.",
+            enter: "கட்டளை மையத்திற்குள் நுழையுங்கள்"
         }
     }
 };
