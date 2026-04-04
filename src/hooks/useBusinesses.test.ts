@@ -62,8 +62,10 @@ describe('useBusinesses Hook', () => {
         expect(registered).toBeDefined();
         expect(registered.serverId).toBe('xyz');
         
-        // Use a simpler check for state update
-        expect(result.current.businesses.length).toBeGreaterThan(0);
+        // Wait for state to settle
+        await waitFor(() => {
+            expect(result.current.businesses.length).toBeGreaterThan(0);
+        });
         expect((result.current.businesses[0] as any).serverId).toBe('xyz');
         
         expect(showToast).toHaveBeenCalledWith('Business registered successfully', 'success');

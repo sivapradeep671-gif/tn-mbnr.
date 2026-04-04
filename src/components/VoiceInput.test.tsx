@@ -29,9 +29,9 @@ describe('VoiceInput Component', () => {
     });
 
     it('should NOT render if SpeechRecognition is not supported', () => {
-        // Remove both variants
-        (window as any).webkitSpeechRecognition = undefined;
-        (window as any).SpeechRecognition = undefined;
+        // Use delete to properly remove properties from window
+        delete (window as any).webkitSpeechRecognition;
+        delete (window as any).SpeechRecognition;
 
         const { container } = render(<VoiceInput onResult={() => {}} />);
         expect(container.firstChild).toBeNull();
