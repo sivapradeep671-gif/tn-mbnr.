@@ -1,0 +1,171 @@
+﻿
+> trustreg-tn@0.0.0 lint
+> eslint .
+
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\server\blockchain.test.ts
+  4:31  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\App.tsx
+  67:9   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\App.tsx:67:9
+  65 |     if (user) {
+  66 |       if (user.role === 'citizen' && (currentView === 'REGISTER' || currentView === 'DASHBOARD')) {
+> 67 |         setCurrentView('HOME');
+     |         ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  68 |       }
+  69 |       if (user.role === 'business' && currentView === 'REPORT') {
+  70 |         setCurrentView('HOME');  react-hooks/set-state-in-effect
+  89:62  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\api\client.ts
+  45:18  error  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  57:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  66:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\BlockchainExplorer.tsx
+  132:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\BusinessRegistration.tsx
+   13:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  325:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  375:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\Dashboard.tsx
+  44:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:86  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\Login.tsx
+  24:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\MapExplorer.tsx
+  139:77  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\MapExplorer.tsx:139:77
+  137 |                     {reports.map((report: CitizenReport, idx: number) => {
+  138 |                         // For demo, if coordinates missing, generate near center
+> 139 |                         const lat = report.latitude || centerPosition[0] + (Math.random() - 0.5) * 5;
+      |                                                                             ^^^^^^^^^^^^^ Cannot call impure function
+  140 |                         const lng = report.longitude || centerPosition[1] + (Math.random() - 0.5) * 5;
+  141 |
+  142 |                         return (  react-hooks/purity
+  140:78  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\MapExplorer.tsx:140:78
+  138 |                         // For demo, if coordinates missing, generate near center
+  139 |                         const lat = report.latitude || centerPosition[0] + (Math.random() - 0.5) * 5;
+> 140 |                         const lng = report.longitude || centerPosition[1] + (Math.random() - 0.5) * 5;
+      |                                                                              ^^^^^^^^^^^^^ Cannot call impure function
+  141 |
+  142 |                         return (
+  143 |                             <Marker                                        react-hooks/purity
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\MerchantDashboard.tsx
+  16:11  error    Unexpected empty object pattern                                                                                   no-empty-pattern
+  76:8   warning  React Hook useEffect has a missing dependency: 'fetchNewToken'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\QRScanner.tsx
+   62:29  error  Error: Cannot access variable before it is declared
+
+`handleScanResult` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\QRScanner.tsx:62:29
+  60 |                         if (serverResult.status !== 'ERROR' && serverResult.status !== 'INVALID') {
+  61 |                             setScanResult(serverResult);
+> 62 |                             handleScanResult(serverResult);
+     |                             ^^^^^^^^^^^^^^^^ `handleScanResult` accessed before it is declared
+  63 |                             return;
+  64 |                         }
+  65 |                     } catch (serverError) {
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\QRScanner.tsx:136:5
+  134 |     }, [businesses, t]);
+  135 |
+> 136 |     const handleScanResult = (result: ScanResult) => {
+      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 137 |         if (result.status === 'VALID') {
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 138 |             setXp(prev => prev + 50);
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 161 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 162 |     };
+      | ^^^^^^^ `handleScanResult` is declared here
+  163 |
+  164 |     const resetScan = () => {
+  165 |         setScanResult(null);  react-hooks/immutability
+   70:25  error  'foundBusiness' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 prefer-const
+  110:26  error  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  123:39  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  132:45  error  'e' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  132:48  error  Empty block statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    no-empty
+  348:59  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\VoiceInput.tsx
+  16:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\VoiceInput.tsx:16:13
+  14 |     useEffect(() => {
+  15 |         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+> 16 |             setIsSupported(false);
+     |             ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  17 |         }
+  18 |     }, []);
+  19 |  react-hooks/set-state-in-effect
+  26:46  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  26:89  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  37:40  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+  44:39  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\components\extensions\AIAssistant.tsx
+  33:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\context\AuthContext.tsx
+   21:14  error    Fast refresh only works when a file only exports components. Move your React context(s) to a separate file                      react-refresh/only-export-components
+   43:8   warning  React Hook useEffect has a missing dependency: 'validateSession'. Either include it or remove the dependency array              react-hooks/exhaustive-deps
+  103:14  error    Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\context\LanguageContext.tsx
+  35:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\hooks\useBusinesses.ts
+   9:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\services\geminiService.ts
+  79:18  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\types\api.ts
+  10:18  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\utils\mapIcons.ts
+  3:49  error  '_riskScore' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\DELL\pradeep vibe\TN-MBNR\src\utils\mockQR.ts
+  3:48  error  '_location' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 44 problems (42 errors, 2 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

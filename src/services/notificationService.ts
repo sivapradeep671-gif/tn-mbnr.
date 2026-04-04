@@ -21,7 +21,7 @@ export const notificationService = {
 
         // In demo mode, we always succeed but show a toast for visual feedback
         const icon = payload.type === 'SMS' ? '📱' : '📧';
-        showToast(`${icon} ${payload.type} sent to ${payload.to.slice(0, 3)}***`, 'success');
+        showToast(`${icon} ${payload.type} sent to ${(payload.to || '').slice(0, 3)}***`, 'success');
         
         return true;
     },

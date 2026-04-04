@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { config } from '../config';
 
 type Role = 'citizen' | 'business' | 'admin';
 
@@ -32,17 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        const storedToken = localStorage.getItem('tn_mbnr_token');
-        if (storedToken) {
-            setToken(storedToken);
-            validateSession(storedToken);
-        } else {
-            setIsLoading(false);
-        }
-    }, []);
-
-    const validateSession = async (currentToken: string) => {
+    const validateSession = useCallback(async (currentToken: string) => {
         try {
             const response = await fetch('/api/auth/me', {
                 headers: { 'Authorization': `Bearer ${currentToken}` }
@@ -59,7 +50,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        const storedToken = localStorage.getItem(config.auth.tokenKey);
+        if (storedToken) {
+            setToken(storedToken);
+            validateSession(storedToken);
+        } else {
+            setIsLoading(false);
+        }
+    }, [validateSession]);
 
     const login = async (phone: string, role: Role) => {
         setIsLoading(true);
@@ -74,7 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const data = await response.json();
                 setToken(data.token);
                 setUser(data.user);
-                localStorage.setItem('tn_mbnr_token', data.token);
+                localStorage.setItem(config.auth.tokenKey, data.token);
             } else {
                 const error = await response.json();
                 throw new Error(error.error || 'Login failed');
@@ -90,7 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = () => {
         setToken(null);
         setUser(null);
-        localStorage.removeItem('tn_mbnr_token');
+        localStorage.removeItem(config.auth.tokenKey);
     };
 
     return (

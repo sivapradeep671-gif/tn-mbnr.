@@ -95,7 +95,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                     }
 
                     // --- 2. Fallback: Local/Mock Verification ---
-                    let foundBusiness = businesses.find(b => b.id === decodedText || b.tradeName.toLowerCase() === decodedText.toLowerCase());
+                    const foundBusiness = businesses.find(b => b.id === decodedText || (b.tradeName || '').toLowerCase() === (decodedText || '').toLowerCase());
 
                     let result: ScanResult;
                     if (foundBusiness && foundBusiness.status === 'Verified') {
@@ -113,14 +113,14 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                         };
                     } else {
                         // Dynamic mock verification
-                        result = verifyMockToken(decodedText, { lat: latitude, lng: longitude }) as ScanResult;
+                        result = verifyMockToken(decodedText) as ScanResult;
                     }
 
                     // 3. Look-alike Detection (Fraud Prevention)
                     if (result.status !== 'VALID') {
                         const suspiciousMatch = businesses.find(b => {
-                            const name = b.tradeName.toLowerCase();
-                            const scan = decodedText.toLowerCase();
+                            const name = (b.tradeName || '').toLowerCase();
+                            const scan = (decodedText || '').toLowerCase();
                             return (name.substring(0, 2) === scan.substring(0, 2) &&
                                 Math.abs(name.length - scan.length) <= 2 &&
                                 scan !== name);
@@ -135,7 +135,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                     setScanResult(result);
                     handleScanResult(result);
 
-                } catch (e) {
+                } catch {
                     const msg = "Service unavailable";
                     setError(msg);
                     showToast(msg, 'error');
@@ -148,8 +148,9 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
             });
         };
 
-        const onScanFailure = (error: any) => {
-            if (error?.message?.includes("permission")) {
+        const onScanFailure = (error: Error | string) => {
+            const errorMsg = typeof error === 'string' ? error : error.message;
+            if (errorMsg?.includes("permission")) {
                 setError("Camera access needed");
             }
         };
@@ -157,7 +158,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
         scanner.render(onScanSuccess, onScanFailure);
 
         return () => {
-            try { scanner.clear(); } catch (e) { }
+            try { scanner.clear(); } catch { }
         };
     }, [businesses, t]);
 

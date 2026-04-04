@@ -11,7 +11,12 @@ const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { validateBody } = require('./middleware/validateBody.cjs');
-require('dotenv').config({ path: '../.env' });
+const config = require('./config/secrets.cjs');
+const logger = require('./utils/logger.cjs');
+
+// Security secrets from hardened config
+const AUTH_SECRET = config.auth.secret;
+const QR_SECRET = config.qr.secret;
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
@@ -71,12 +76,23 @@ app.use(helmet({
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 20,
-    message: { error: 'Too many authentication attempts. Please try again in 15 minutes.' }
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'CRITICAL SECURITY FLAG: Too many authentication attempts. Potential brute force detected. Retry in 15m.' }
+});
+
+const registrationLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // Limit to 5 registrations per hour per IP
+    standardHeaders: true,
+    message: { error: 'ANTI-FLOOD PROTECTION: Registration frequency threshold reached. Manual verification required for further entries.' }
 });
 
 const apiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: 100
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false
 });
 
 app.use(cors({
@@ -88,7 +104,6 @@ app.use(cors({
 app.use(bodyParser.json());
 
 // --- Auth Middleware ---
-const AUTH_SECRET = process.env.AUTH_SECRET || 'tn-mbnr-auth-secret-2024';
 
 const generateToken = (payload) => {
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
@@ -205,24 +220,29 @@ app.post('/api/verify-business', apiLimiter, (req, res) => {
     });
 });
 
-const businessSchema = {
-    legalName: { required: true, type: 'string' },
-    tradeName: { required: true, type: 'string' },
-    category: { required: true, type: 'string' }
-};
+const { businessSchema } = require('./validation/businessSchema.cjs');
+const { encrypt } = require('./utils/piiEncryption.cjs');
 
-app.post('/api/businesses', apiLimiter, authenticateToken, authorizeRoles('business', 'admin'), validateBody(businessSchema), (req, res) => {
+app.post('/api/businesses', registrationLimiter, authenticateToken, authorizeRoles('business', 'admin'), validateBody(businessSchema), (req, res) => {
     const b = req.body;
+    const encryptedAadhaar = encrypt(b.aadhaar_no);
     const regDate = b.registrationDate || new Date().toISOString();
     const licenseTimestamps = calculateLicenseTimestamps(regDate);
+    
+    // Dynamic SLA lookup
+    const slaKey = b.application_type === 'AMENDMENT' ? 'SLA_DAYS_AMENDMENT' : (b.application_type === 'RENEWAL' ? 'SLA_DAYS_RENEWAL' : 'SLA_DAYS_NEW');
+    
+    db.get("SELECT value FROM settings WHERE key = ?", [slaKey], (err, row) => {
+        const slaDays = parseInt(row?.value || '15');
+        const slaDeadline = new Date(Date.now() + slaDays * 24 * 60 * 60 * 1000).toISOString();
 
     const sql = `INSERT INTO businesses (
         id, legalName, tradeName, type, category, address, proofOfAddress, branchName, 
         contactNumber, email, gstNumber, status, registrationDate, riskScore, latitude, longitude,
         license_valid_till, grace_ends_at, pay_by_date, payment_done, license_status,
         assessment_number, water_connection_no, property_tax_status, water_tax_status, professional_tax_status,
-        website
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+        website, municipal_ward, nic_category, employee_count, application_type, sla_deadline_at, aadhaar_no, documents_metadata
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
     const params = [
         b.id, b.legalName, b.tradeName, b.type, b.category, b.address, b.proofOfAddress, b.branchName,
@@ -237,7 +257,14 @@ app.post('/api/businesses', apiLimiter, authenticateToken, authorizeRoles('busin
         b.property_tax_status || 'Pending',
         b.water_tax_status || 'Pending',
         b.professional_tax_status || 'Pending',
-        b.website || ''
+        b.website || '',
+        b.municipal_ward || '',
+        b.nic_category || '',
+        b.employee_count || 0,
+        b.application_type || 'NEW',
+        slaDeadline,
+        encryptedAadhaar || '',
+        b.documents_metadata || '{}'
     ];
 
     db.run(sql, params, function (err) {
@@ -257,6 +284,7 @@ app.post('/api/businesses', apiLimiter, authenticateToken, authorizeRoles('busin
         db.run(ledgerSql, ledgerParams);
 
         res.json({ message: "success", id: this.lastID, blockHash: newBlock.hash });
+    });
     });
 });
 
@@ -295,7 +323,6 @@ app.get('/api/ledger', (req, res) => {
 });
 
 // --- QR & Verification Logic ---
-const QR_SECRET = process.env.QR_SECRET_KEY || 'tn-mbnr-qr-secret-2024';
 
 const generateQRToken = (payload) => {
     const data = JSON.stringify({ ...payload, exp: Date.now() + 30000 }); // 30s expiry
@@ -431,6 +458,113 @@ app.get('/api/admin/suspicious', authenticateToken, authorizeRoles('admin'), (re
     });
 });
 
+// --- Approval Workflow ---
+
+app.get('/api/admin/pending-approvals', authenticateToken, authorizeRoles('admin'), (req, res) => {
+    const sql = `
+        SELECT b.*, 
+        (SELECT stage FROM registry_approvals WHERE registry_id = b.id ORDER BY acted_at DESC LIMIT 1) as current_stage,
+        (SELECT status FROM registry_approvals WHERE registry_id = b.id ORDER BY acted_at DESC LIMIT 1) as last_status
+        FROM businesses b
+        WHERE b.status NOT IN ('Verified', 'Rejected')
+        ORDER BY registrationDate ASC
+    `;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(400).json({ error: err.message });
+        res.json({ message: "success", data: rows });
+    });
+});
+
+app.get('/api/approvals/:registry_id', apiLimiter, (req, res) => {
+    const { registry_id } = req.params;
+    db.all("SELECT * FROM registry_approvals WHERE registry_id = ? ORDER BY acted_at DESC", [registry_id], (err, rows) => {
+        if (err) return res.status(400).json({ error: err.message });
+        res.json({ message: "success", data: rows });
+    });
+});
+
+app.post('/api/approvals', authenticateToken, (req, res) => {
+    const { registry_id, stage, status, comments, order_ref_no, valid_from, valid_to, attachment_url } = req.body;
+    const { id: officerId, role: officerRole } = req.user;
+
+    if (!registry_id || !stage || !status) {
+        return res.status(400).json({ error: "Missing required approval fields" });
+    }
+
+    // Role-Stage Mapping for TN e-Governance
+    const allowedRoles = {
+        'SCRUTINY': ['scrutiny_officer', 'admin'],
+        'INSPECTION': ['inspector', 'admin'],
+        'FINAL': ['approver', 'admin']
+    };
+
+    if (allowedRoles[stage] && !allowedRoles[stage].includes(officerRole)) {
+        return res.status(403).json({ error: `Permission denied: ${officerRole} cannot perform ${stage}` });
+    }
+
+    const sql = `INSERT INTO registry_approvals (
+        registry_id, stage, status, acted_by_user_id, acted_by_role, comments, order_ref_no, valid_from, valid_to, attachment_url
+    ) VALUES (?,?,?,?,?,?,?,?,?,?)`;
+
+    const params = [
+        registry_id, stage, status, officerId, officerRole, 
+        comments, order_ref_no, valid_from, valid_to, attachment_url
+    ];
+
+    db.serialize(() => {
+        db.run("BEGIN TRANSACTION");
+        db.run(sql, params, function(err) {
+            if (err) {
+                db.run("ROLLBACK");
+                return res.status(400).json({ error: err.message });
+            }
+            
+            // Map workflow status to main business status
+            let bizStatus = 'Pending';
+            let nextStage = stage;
+
+            if (status === 'APPROVED') {
+                if (stage === 'SCRUTINY') nextStage = 'INSPECTION';
+                else if (stage === 'INSPECTION') nextStage = 'FINAL';
+                else if (stage === 'FINAL') bizStatus = 'Verified';
+            } else if (status === 'REJECTED') {
+                bizStatus = 'Rejected';
+            }
+            
+            // Update business status and lifecycle tracking
+            db.run("UPDATE businesses SET status = ?, current_stage = ? WHERE id = ?", [bizStatus, nextStage, registry_id], (err) => {
+                if (err) {
+                    db.run("ROLLBACK");
+                    return res.status(400).json({ error: "Record update error" });
+                }
+
+                // Add to Ledger for Immutable Audit Trail
+                const auditData = {
+                    id: registry_id,
+                    action: 'ApprovalTransition',
+                    stage,
+                    status,
+                    officer: officerId,
+                    role: officerRole,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const newBlock = tnMbnrChain.addBlock(new Block(Date.now(), auditData));
+                const ledgerSql = `INSERT INTO ledger (timestamp, data, previousHash, hash, nonce) VALUES (?,?,?,?,?)`;
+                
+                db.run(ledgerSql, [newBlock.timestamp, JSON.stringify(newBlock.data), newBlock.previousHash, newBlock.hash, newBlock.nonce], (err) => {
+                    if (err) {
+                        db.run("ROLLBACK");
+                        return res.status(400).json({ error: "Ledger commit failure" });
+                    }
+                    db.run("COMMIT");
+                    res.json({ message: "success", approval_id: this.lastID, business_status: bizStatus, next_stage: nextStage });
+                });
+            });
+        });
+    });
+});
+
 app.post('/api/reports', upload.single('image'), (req, res) => {
     const { business_name, location, description, category, severity } = req.body;
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
@@ -456,6 +590,23 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // SPA Catch-all (using app.use for Express 5 compatibility)
 app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    logger.error('Unhandled Exception', {
+        error: err.message,
+        stack: err.stack,
+        path: req.path,
+        method: req.method
+    });
+
+    res.status(500).json({
+        status: 'error',
+        message: process.env.NODE_ENV === 'production' 
+            ? 'An internal server error occurred. Support node has been notified.' 
+            : err.message
+    });
 });
 
 app.listen(PORT, () => {

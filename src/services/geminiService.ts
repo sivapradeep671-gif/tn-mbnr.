@@ -76,7 +76,7 @@ class GeminiService {
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             return JSON.parse(response.text());
-        } catch (error) {
+        } catch {
             return { severity: "High", urgency: 7, summary: "Automated risk flag raised due to processing error." };
         }
     }

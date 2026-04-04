@@ -7,7 +7,7 @@ export interface ApiResponse<T> {
     id?: number | string;
 }
 
-export interface BusinessListResponse extends ApiResponse<Business[]> {}
+export type BusinessListResponse = ApiResponse<Business[]>;
 
 export interface BusinessSingleResponse extends ApiResponse<Business> {
     blockHash?: string;

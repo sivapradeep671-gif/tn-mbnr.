@@ -1,14 +1,15 @@
 import React from 'react';
-import { Shield, Sparkles, Building2, QrCode, ArrowRight } from 'lucide-react';
+import { Shield, Sparkles, Building2, QrCode } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface HeroProps {
     onRegister: () => void;
     onScan: () => void;
     onCitizenRegister: () => void;
+    onExploreMap: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ onRegister, onScan, onCitizenRegister }) => {
+export const Hero: React.FC<HeroProps> = ({ onRegister, onScan, onCitizenRegister, onExploreMap }) => {
     const { t } = useLanguage();
 
     return (
@@ -44,11 +45,18 @@ export const Hero: React.FC<HeroProps> = ({ onRegister, onScan, onCitizenRegiste
 
                     <button
                         onClick={onScan}
-                        className="w-full sm:w-auto flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 px-10 py-5 rounded-2xl font-black transition-all hover:-translate-y-1 active:scale-95 backdrop-blur-xl shadow-2xl group"
+                        className="w-full sm:w-auto flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 px-8 py-5 rounded-2xl font-black transition-all hover:-translate-y-1 active:scale-95 backdrop-blur-xl shadow-2xl group"
                     >
                         <QrCode className="h-6 w-6 text-yellow-500 group-hover:rotate-12 transition-transform" />
                         <span className="uppercase tracking-wider">{t.nav?.scan_qr || "Verify Shop"}</span>
-                        <ArrowRight className="h-5 w-5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    </button>
+
+                    <button
+                        onClick={onExploreMap}
+                        className="w-full sm:w-auto flex items-center justify-center space-x-3 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 px-8 py-5 rounded-2xl font-black transition-all hover:-translate-y-1 active:scale-95 backdrop-blur-xl shadow-2xl group"
+                    >
+                        <Sparkles className="h-6 w-6 text-blue-400 group-hover:animate-pulse" />
+                        <span className="uppercase tracking-wider">{t.nav?.map || "Explore Map"}</span>
                     </button>
                 </div>
 

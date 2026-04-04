@@ -129,7 +129,7 @@ export const BlockchainExplorer: React.FC<BlockchainExplorerProps> = ({ business
                     <Filter className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-hover:text-yellow-500 transition-colors" />
                     <select
                         value={filterType}
-                        onChange={(e) => setFilterType(e.target.value as any)}
+                        onChange={(e) => setFilterType(e.target.value as 'all' | 'hash' | 'data')}
                         className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl pl-16 pr-12 py-6 text-sm text-white focus:border-yellow-500/50 outline-none appearance-none cursor-pointer hover:bg-white/[0.06] transition-all font-black uppercase tracking-widest min-w-[240px]"
                     >
                         <option value="all" className="bg-slate-950">Combined Stream</option>

@@ -27,7 +27,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView }) =
     };
 
     const navItems = ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'REPORT', 'SCAN'].filter(view => {
-        if (!user) return ['HOME', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
+        if (!user) return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
         if (user.role === 'citizen') return ['HOME', 'MAP', 'REGISTRY', 'REPORT', 'SCAN'].includes(view);
         if (user.role === 'business') return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
         return true;

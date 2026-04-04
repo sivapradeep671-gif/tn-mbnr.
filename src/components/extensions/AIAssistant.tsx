@@ -30,7 +30,7 @@ export const AIAssistant: React.FC = () => {
         try {
             const response = await aiService.getChatResponse(input, messages);
             setMessages(prev => [...prev, { role: 'model', parts: [{ text: response }] }]);
-        } catch (error) {
+        } catch {
             setMessages(prev => [...prev, { role: 'model', parts: [{ text: "System node failure. Reconnecting..." }] }]);
         } finally {
             setIsThinking(false);

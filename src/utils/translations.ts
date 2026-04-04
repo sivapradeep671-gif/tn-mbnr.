@@ -71,7 +71,11 @@ export const translations = {
                 logo: "Business Logo",
                 upload_logo: "Upload Logo for AI Analysis",
                 save_draft: "Save Draft",
-                verify_proceed: "Verify & Proceed"
+                verify_proceed: "Verify & Proceed",
+                municipal_ward: "Municipal Ward No.",
+                nic_category: "NIC Industry Category",
+                employee_count: "Employee Count",
+                aadhaar_secure: "Aadhaar Number (Secure Entry)"
             },
             placeholders: {
                 legal_name: "e.g., Sri Krishna Sweets Pvt Ltd",
@@ -163,7 +167,9 @@ export const translations = {
                 gov_verified: "Government Verified",
                 license_status: "License Status",
                 reg_location: "Registered Location",
-                business_id: "Business ID"
+                business_id: "Business ID",
+                ward: "Municipal Ward",
+                sla_deadline: "SLA Deadline"
             },
             errors: {
                 geo_unsupported: "Geolocation is not supported by your browser",
@@ -299,7 +305,11 @@ export const translations = {
                 logo: "வணிக லோகோ",
                 upload_logo: "AI பகுப்பாய்விற்காக லோகோவை பதிவேற்றவும்",
                 save_draft: "வரைவைச் சேமி",
-                verify_proceed: "சரிபார்த்து தொடரவும்"
+                verify_proceed: "சரிபார்த்து தொடரவும்",
+                municipal_ward: "நகராட்சி வார்டு எண்",
+                nic_category: "NIC தொழில் வகை",
+                employee_count: "ஊழியர் எண்ணிக்கை",
+                aadhaar_secure: "ஆதார் எண் (பாதுகாப்பான பதிவு)"
             },
             placeholders: {
                 legal_name: "எ.கா., ஸ்ரீ கிருஷ்ணா ஸ்வீட்ஸ் பிரைவேட் லிமிடெட்",
@@ -391,7 +401,9 @@ export const translations = {
                 gov_verified: "அரசு சரிபார்க்கப்பட்டது",
                 license_status: "உரிமம் நிலை",
                 reg_location: "பதிவு செய்யப்பட்ட இடம்",
-                business_id: "வணிக ஐடி"
+                business_id: "வணிக ஐடி",
+                ward: "நகராட்சி வார்டு",
+                sla_deadline: "SLA காலக்கெடு"
             },
             errors: {
                 geo_unsupported: "உங்கள் உலாவியில் புவி இருப்பிடம் ஆதரிக்கப்படவில்லை",

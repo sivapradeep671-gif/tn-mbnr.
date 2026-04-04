@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, LayoutDashboard, Database, Search, Activity, ShieldCheck, Zap, AlertTriangle, MapPin, Bot } from 'lucide-react';
+import { LayoutDashboard, Database, Activity, ShieldCheck, Zap, AlertTriangle, MapPin, Bot } from 'lucide-react';
 import { aiService } from '../services/geminiService';
 import type { Business, CitizenReport } from '../types/types';
 import { api } from '../api/client';
 import { AdminAnalytics } from './AdminAnalytics';
+import { ApprovalWorkflow } from './ApprovalWorkflow';
 
 interface DashboardProps {
     businesses: Business[];
     reports: CitizenReport[];
-    onUpdateStatus: (id: string, status: 'Verified' | 'Rejected') => void;
 }
 
 interface SuspiciousScan {
@@ -29,24 +29,29 @@ interface RiskyShop {
     risk_score: number;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpdateStatus }) => {
-    const [activeTab, setActiveTab] = useState<'businesses' | 'reports' | 'analytics' | 'prediction'>('businesses');
+export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => {
+    const [activeTab, setActiveTab] = useState<'businesses' | 'reports' | 'analytics' | 'prediction' | 'approvals'>('businesses');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [predictionModel, setPredictionModel] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
     const [realShops, setRealShops] = useState<Business[]>([]);
     const [suspiciousScans, setSuspiciousScans] = useState<SuspiciousScan[]>([]);
     const [riskyShops, setRiskyShops] = useState<RiskyShop[]>([]);
+    const [pendingApprovals, setPendingApprovals] = useState<Business[]>([]);
+    const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
 
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const shopsRes = await api.get<{ shops: any[] }>('/admin/shops');
+                const shopsRes = await api.get<{ shops: Business[] }>('/admin/shops');
                 setRealShops(shopsRes.shops);
                 
-                const suspiciousRes = await api.get<{ scans: any[], top_risky_shops: any[] }>('/admin/suspicious');
+                const suspiciousRes = await api.get<{ scans: SuspiciousScan[], top_risky_shops: RiskyShop[] }>('/admin/suspicious');
                 setSuspiciousScans(suspiciousRes.scans);
                 setRiskyShops(suspiciousRes.top_risky_shops);
+
+                const approvalsRes = await api.get<{ data: Business[] }>('/admin/pending-approvals');
+                setPendingApprovals(approvalsRes.data);
             } catch (e) {
                 console.error("Failed to fetch admin stats:", e);
                 setRealShops(businesses);
@@ -55,19 +60,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
         fetchStats();
     }, [businesses]);
 
-    const displayShops = realShops.length > 0 ? realShops : businesses;
+    const displayShops = (realShops && realShops.length > 0) ? realShops : (businesses || []);
 
     const stats = {
         total: displayShops.length,
         verified: displayShops.filter((b: Business) => b.status === 'Verified').length,
         pending: displayShops.filter((b: Business) => b.status === 'Pending').length,
-        rejected: displayShops.filter((b: Business) => b.status === 'Rejected').length
+        rejected: displayShops.filter((b: Business) => b.status === 'Rejected').length,
+        sla_compliant: displayShops.filter((b: Business) => b.status === 'Verified' || (b.status === 'Pending' && b.sla_deadline_at && new Date(b.sla_deadline_at) > new Date())).length,
+        sla_breached: displayShops.filter((b: Business) => b.status === 'Pending' && b.sla_deadline_at && new Date(b.sla_deadline_at) < new Date()).length,
+        sla_urgent: displayShops.filter((b: Business) => {
+            if (b.status !== 'Pending' || !b.sla_deadline_at) return false;
+            const diff = new Date(b.sla_deadline_at).getTime() - new Date().getTime();
+            return diff > 0 && diff < (3 * 24 * 60 * 60 * 1000);
+        }).length,
+        aging_0_3: displayShops.filter((b: Business) => {
+            if (b.status !== 'Pending') return false;
+            const age = (new Date().getTime() - new Date(b.registrationDate).getTime()) / (24 * 60 * 60 * 1000);
+            return age <= 3;
+        }).length,
+        aging_3_7: displayShops.filter((b: Business) => {
+            if (b.status !== 'Pending') return false;
+            const age = (new Date().getTime() - new Date(b.registrationDate).getTime()) / (24 * 60 * 60 * 1000);
+            return age > 3 && age <= 7;
+        }).length,
+        aging_7_plus: displayShops.filter((b: Business) => {
+            if (b.status !== 'Pending') return false;
+            const age = (new Date().getTime() - new Date(b.registrationDate).getTime()) / (24 * 60 * 60 * 1000);
+            return age > 7;
+        }).length
     };
 
     const filteredBusinesses = displayShops.filter((b: Business) => 
-        b.tradeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.legalName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.id?.toLowerCase().includes(searchTerm.toLowerCase())
+        (b.tradeName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+        (b.legalName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+        (b.id || '').toLowerCase().includes((searchTerm || '').toLowerCase())
     );
 
     return (
@@ -97,10 +124,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                         Civic Intelligence
                     </button>
                     <button 
+                        onClick={() => setActiveTab('approvals')}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'approvals' ? 'bg-yellow-500 text-slate-950 shadow-2xl' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Pending Approvals
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('analytics')}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'analytics' ? 'bg-white text-slate-950 shadow-2xl' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Analytics
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('prediction')}
                         className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'prediction' ? 'bg-yellow-500 text-slate-950 shadow-2xl' : 'text-slate-400 hover:text-white'}`}
                     >
-                        AI Prediction
+                        AI Pulse
                     </button>
                 </div>
             </div>
@@ -122,120 +161,205 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                     </div>
                 ))}
             </div>
-
+            
             {activeTab === 'businesses' && (
-                <div className="glass-card rounded-[2.5rem] border-white/5 overflow-hidden mb-12 shadow-2xl">
-                    <div className="p-6 border-b border-white/5 bg-white/[0.02] flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-3">
-                        <div className="w-1.5 h-6 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,1)]"></div>
-                        <h2 className="text-sm font-black text-white uppercase tracking-[0.3em]">Registry Stream</h2>
+                <div className="glass-card rounded-[2.5rem] border-white/5 overflow-hidden shadow-2xl animate-reveal-up">
+                    <div className="p-8 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                        <h3 className="text-sm font-black text-white uppercase tracking-[0.3em] flex items-center gap-3">
+                            <Database className="h-4 w-4 text-yellow-500" />
+                            Master Asset Registry
+                        </h3>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                <Database className="h-3 w-3 text-slate-500" />
+                            </div>
+                            <input 
+                                type="text"
+                                placeholder="Search by Trade Name / ID..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="bg-slate-950 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-[10px] text-white focus:border-yellow-500/50 outline-none w-64 transition-all"
+                            />
+                        </div>
                     </div>
-                    <div className="relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-yellow-500 transition-colors" />
-                        <input 
-                            type="text" 
-                            placeholder="Filter records..."
-                            className="bg-slate-950/50 border border-white/5 rounded-2xl py-3 pl-12 pr-6 text-sm text-white focus:outline-none focus:border-yellow-500/50 focus:ring-4 focus:ring-yellow-500/10 transition-all w-full md:w-80 font-medium"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-white/[0.01] text-slate-500 text-[10px] uppercase font-black tracking-[0.4em]">
+                                <tr>
+                                    <th className="px-8 py-5">Verified Asset</th>
+                                    <th className="px-8 py-5">Infrastructure / Ward</th>
+                                    <th className="px-8 py-5">Governance Status</th>
+                                    <th className="px-8 py-5">Total Scans</th>
+                                    <th className="px-8 py-5">Compliance</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/[0.03]">
+                                {filteredBusinesses.map((biz: Business) => (
+                                    <tr key={biz.id} className="hover:bg-white/[0.02] transition-colors group">
+                                        <td className="px-8 py-6">
+                                            <p className="text-white font-black text-md tracking-tight">{biz.tradeName}</p>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 opacity-60">
+                                                {biz.legalName} • {biz.id}
+                                            </p>
+                                            <p className="text-[9px] text-slate-600 font-medium mt-1 group-hover:text-slate-400 transition-colors">
+                                                {biz.address} | {biz.contactNumber}
+                                            </p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{biz.nic_category || 'Commercial'}</p>
+                                            <p className="text-[9px] text-slate-600 font-mono mt-1">Ward {biz.municipal_ward || '00'}</p>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className={`px-3 py-1 text-[10px] font-black rounded-lg uppercase tracking-widest border ${
+                                                biz.status === 'Verified' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 
+                                                biz.status === 'Rejected' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 
+                                                'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                            }`}>
+                                                {biz.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] text-white font-black">{biz.total_scans || 0} Events</span>
+                                                <span className="text-[9px] text-green-500 opacity-60">{biz.verified_scans || 0} Valid</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden min-w-[60px]">
+                                                    <div className={`h-full ${ (biz.riskScore || 0) > 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${(biz.riskScore || 0) * 10}%` }}></div>
+                                                </div>
+                                                <span className="text-[10px] text-slate-500 font-mono">{(biz.riskScore || 0).toFixed(1)}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+            )}
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-white/[0.01] text-slate-500 text-[10px] uppercase font-black tracking-[0.4em]">
-                            <tr>
-                                <th className="px-8 py-5">Verified Identity</th>
-                                <th className="px-8 py-5">Category</th>
-                                <th className="px-8 py-5">Audit Status</th>
-                                <th className="px-8 py-5">Integrity Rank</th>
-                                <th className="px-8 py-5 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/[0.03]">
-                            {filteredBusinesses.map((business: Business) => (
-                                <tr key={business.id} className="hover:bg-white/[0.02] transition-colors group">
-                                    <td className="px-8 py-6">
-                                        <div className="flex flex-col">
-                                            <span className="text-white font-black text-md group-hover:text-yellow-500 transition-colors tracking-tight">{business.tradeName}</span>
-                                            <span className="text-[10px] text-slate-500 font-black tracking-widest uppercase mt-1 opacity-60">ID: {business.id.slice(0, 12)}...</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 whitespace-nowrap">
-                                        <span className="px-3 py-1 bg-white/5 text-slate-400 text-[10px] font-black rounded-lg uppercase tracking-widest border border-white/5">
-                                            {business.category}
-                                        </span>
-                                    </td>
-                                    <td className="px-8 py-6 whitespace-nowrap">
-                                        <div className="flex items-center gap-2">
-                                            {business.status === 'Verified' ? (
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-500 text-[10px] font-black rounded-xl border border-green-500/20">
-                                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                                                    AUTHENTICATED
-                                                </div>
-                                            ) : business.status === 'Pending' ? (
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-500/10 text-yellow-500 text-[10px] font-black rounded-xl border border-yellow-500/20">
-                                                    <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></div>
-                                                    UNVERIFIED
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 text-red-500 text-[10px] font-black rounded-xl border border-red-500/20">
-                                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
-                                                    REVOKED
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 whitespace-nowrap">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-20 h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                                                <div 
-                                                    className={`h-full rounded-full transition-all duration-1000 ${
-                                                        (business.riskScore || 0) < 3 ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' :
-                                                        (business.riskScore || 0) < 6 ? 'bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'
-                                                    }`}
-                                                    style={{ width: `${((10 - (business.riskScore || 5)) / 10) * 100}%` }}
-                                                ></div>
-                                            </div>
-                                            <span className="text-[10px] font-black text-slate-500">{(10 - (business.riskScore || 5)).toFixed(1)}/10</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-6 whitespace-nowrap text-right">
-                                        <div className="flex items-center justify-end gap-3">
-                                            {business.status === 'Pending' ? (
-                                                <>
+            {activeTab === 'approvals' && (
+                <div className="space-y-8 animate-reveal-up">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-6 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,1)]"></div>
+                            <h2 className="text-sm font-black text-white uppercase tracking-[0.3em]">{selectedBusiness ? 'Approval Intervention' : 'Pending Queue'}</h2>
+                        </div>
+                        {selectedBusiness && (
+                            <button 
+                                onClick={() => setSelectedBusiness(null)}
+                                className="px-6 py-2 bg-white/5 text-slate-400 text-xs font-black rounded-xl hover:text-white transition-all uppercase tracking-widest border border-white/5"
+                            >
+                                Back to Queue
+                            </button>
+                        )}
+                    </div>
+
+                    {!selectedBusiness ? (
+                        <div className="glass-card rounded-[2.5rem] border-white/5 overflow-hidden shadow-2xl">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-white/[0.01] text-slate-500 text-[10px] uppercase font-black tracking-[0.4em]">
+                                        <tr>
+                                            <th className="px-8 py-5">Applicant</th>
+                                            <th className="px-8 py-5">Status / Stage</th>
+                                            <th className="px-8 py-5">Submited On</th>
+                                            <th className="px-8 py-5 text-right">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/[0.03]">
+                                        {pendingApprovals.map((biz: Business) => (
+                                            <tr key={biz.id} className="hover:bg-white/[0.02] transition-colors group">
+                                                <td className="px-8 py-6">
+                                                    <p className="text-white font-black text-md tracking-tight">{biz.tradeName}</p>
+                                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1 opacity-60">ID: {(biz.id || '').slice(0, 12)}...</p>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <span className="px-3 py-1 bg-white/5 text-slate-400 text-[10px] font-black rounded-lg uppercase tracking-widest border border-white/5">
+                                                        {biz.status} {biz.current_stage ? `• ${biz.current_stage}` : ''}
+                                                    </span>
+                                                </td>
+                                                <td className="px-8 py-6">
+                                                    <span className="text-[10px] text-slate-500 font-black uppercase">{new Date(biz.registrationDate).toLocaleDateString()}</span>
+                                                </td>
+                                                <td className="px-8 py-6 text-right">
                                                     <button 
-                                                        onClick={() => onUpdateStatus(business.id, 'Verified')}
+                                                        onClick={() => setSelectedBusiness(biz)}
                                                         className="px-4 py-2 bg-white text-slate-950 text-[10px] font-black rounded-xl hover:bg-yellow-500 transition-all uppercase shadow-xl active:scale-95"
                                                     >
-                                                        Authenticate
+                                                        Review Case
                                                     </button>
-                                                    <button 
-                                                        onClick={() => onUpdateStatus(business.id, 'Rejected')}
-                                                        className="px-4 py-2 bg-red-500/10 text-red-500 text-[10px] font-black rounded-xl hover:bg-red-500 hover:text-white transition-all uppercase border border-red-500/20 active:scale-95"
-                                                    >
-                                                        Revoke
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <button className="flex items-center gap-2 group/btn text-slate-400 hover:text-white transition-all text-[10px] font-black uppercase py-2 px-4 bg-white/5 rounded-xl border border-white/5 hover:bg-white/10 active:scale-95">
-                                                    View Traceability <ChevronRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                                                </button>
-                                            )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {pendingApprovals.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="px-8 py-24 text-center">
+                                                    <p className="text-[10px] text-slate-600 font-black uppercase tracking-[0.3em]">Decision Engine Idle — No pending cases</p>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="animate-in slide-in-from-right-10 duration-500">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                                <div className="md:col-span-2 glass-card p-8 rounded-[2.5rem] border-white/5">
+                                    <div className="flex items-center gap-6 mb-8">
+                                        <div className="w-16 h-16 bg-white/5 rounded-3xl flex items-center justify-center border border-white/10">
+                                            <Database className="h-8 w-8 text-yellow-500" />
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                        <div>
+                                            <h2 className="text-2xl font-black text-white tracking-tight">{selectedBusiness.tradeName}</h2>
+                                            <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1">{selectedBusiness.legalName}</p>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-8 text-xs font-medium">
+                                        <div>
+                                            <p className="text-slate-500 uppercase text-[8px] font-black tracking-widest mb-1">Entity Type</p>
+                                            <p className="text-white">{selectedBusiness.type}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-slate-500 uppercase text-[8px] font-black tracking-widest mb-1">GST Number</p>
+                                            <p className="text-white">{selectedBusiness.gstNumber || 'N/A'}</p>
+                                        </div>
+                                        <div className="col-span-2">
+                                            <p className="text-slate-500 uppercase text-[8px] font-black tracking-widest mb-1">Registered Address</p>
+                                            <p className="text-white">{selectedBusiness.address}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="glass-card p-8 rounded-[2.5rem] border-white/5 bg-yellow-500/5">
+                                    <h3 className="text-[10px] text-yellow-500 font-black uppercase tracking-[0.3em] mb-6">Compliance Score</h3>
+                                    <div className="text-center">
+                                        <div className="text-4xl font-black text-white mb-2">{(10 - (selectedBusiness.riskScore || 5)).toFixed(1)}/10</div>
+                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Initial System Risk: {selectedBusiness.riskScore || 5}/10</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <ApprovalWorkflow 
+                                business={selectedBusiness} 
+                                isAdmin={true} 
+                                onUpdate={async () => {
+                                    // Refresh the queue
+                                    const approvalsRes = await api.get<{ data: Business[] }>('/admin/pending-approvals');
+                                    setPendingApprovals(approvalsRes.data);
+                                    // Also update selected business if it's still in the queue (or just close view)
+                                    const updated = approvalsRes.data.find(b => b.id === selectedBusiness.id);
+                                    if (!updated) setSelectedBusiness(null);
+                                    else setSelectedBusiness(updated);
+                                }} 
+                            />
+                        </div>
+                    )}
                 </div>
-            </div>
-        )}
-
-            {activeTab === 'analytics' && (
-                <AdminAnalytics stats={stats} />
             )}
+
+
 
             {activeTab === 'reports' && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -265,7 +389,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                                                 <div>
                                                     <p className="text-white font-bold text-sm">{scan.tradeName || 'Unknown Shop'}</p>
                                                     <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-1">
-                                                        {scan.result.replace('_', ' ')} • {new Date(scan.scanned_at).toLocaleString()}
+                                                        {(scan.result || '').replace('_', ' ')} • {new Date(scan.scanned_at).toLocaleString()}
                                                     </p>
                                                 </div>
                                             </div>
@@ -351,6 +475,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                 </div>
             )}
 
+            {activeTab === 'analytics' && (
+                <AdminAnalytics stats={{
+                    total: businesses.length,
+                    verified: businesses.filter(b => b.status === 'Verified').length,
+                    pending: businesses.filter(b => b.status === 'Pending').length,
+                    rejected: businesses.filter(b => b.status === 'Rejected').length,
+                    sla_compliant: businesses.filter(b => {
+                        if (b.status !== 'Pending') return true;
+                        if (!b.sla_deadline_at) return true;
+                        return new Date(b.sla_deadline_at) > new Date();
+                    }).length,
+                    sla_breached: businesses.filter(b => {
+                        if (b.status !== 'Pending') return false;
+                        if (!b.sla_deadline_at) return false;
+                        return new Date(b.sla_deadline_at) < new Date();
+                    }).length,
+                    sla_urgent: businesses.filter(b => {
+                        if (b.status !== 'Pending') return false;
+                        if (!b.sla_deadline_at) return false;
+                        const deadline = new Date(b.sla_deadline_at);
+                        const diff = deadline.getTime() - new Date().getTime();
+                        return diff > 0 && diff < (3 * 24 * 60 * 60 * 1000);
+                    }).length,
+                    aging_0_3: businesses.filter(b => {
+                         if (b.status !== 'Pending') return false;
+                         const age = (new Date().getTime() - new Date(b.registrationDate).getTime()) / (24 * 60 * 60 * 1000);
+                         return age <= 3;
+                    }).length,
+                    aging_3_7: businesses.filter(b => {
+                         if (b.status !== 'Pending') return false;
+                         const age = (new Date().getTime() - new Date(b.registrationDate).getTime()) / (24 * 60 * 60 * 1000);
+                         return age > 3 && age <= 7;
+                    }).length,
+                    aging_7_plus: businesses.filter(b => {
+                         if (b.status !== 'Pending') return false;
+                         const age = (new Date().getTime() - new Date(b.registrationDate).getTime()) / (24 * 60 * 60 * 1000);
+                         return age > 7;
+                    }).length
+                }} />
+            )}
+
             {activeTab === 'prediction' && (
                 <div className="glass-card rounded-[2.5rem] border-white/5 p-12 text-center animate-fade-in shadow-2xl min-h-[500px] flex flex-col items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-yellow-500/5 backdrop-blur-3xl" />
@@ -366,7 +531,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                                 onClick={async () => {
                                     setIsAnalyzing(true);
                                     // Deep analysis simulation
-                                    const logs = JSON.stringify(suspiciousScans.slice(0, 5));
+                                     const logs = JSON.stringify((suspiciousScans || []).slice(0, 5));
                                     const prompt = `Analyze these scan logs and predict future fraud trends for Tamil Nadu. Keep it in 3 bullet points. Logs: ${logs}`;
                                     try {
                                         const res = await aiService.getChatResponse(prompt, []);

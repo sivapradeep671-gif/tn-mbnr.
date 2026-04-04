@@ -11,6 +11,7 @@ import { ToastContainer } from './components/Toast';
 import { api } from './api/client';
 import { Mail, Shield, Zap, AlertTriangle } from 'lucide-react';
 import { useLanguage } from './context/LanguageContext';
+import { config } from './config';
 
 // Lazy load feature components for better performance
 const BusinessRegistration = lazy(() => import('./components/BusinessRegistration').then(m => ({ default: m.BusinessRegistration })));
@@ -45,7 +46,7 @@ function AppContent() {
   const { user, isLoading: authLoading } = useAuth();
   const { businesses, reports, updateStatus, registerBusiness } = useBusinesses();
   
-  const [currentView, setCurrentView] = useState('LOGIN');
+  const [currentView, setCurrentView] = useState('HOME');
   const [reportPrefill, setReportPrefill] = useState<string>('');
   const [isBackendOffline, setIsBackendOffline] = useState(false);
 
@@ -106,6 +107,7 @@ function AppContent() {
                     onRegister={() => setCurrentView('REGISTER')} 
                     onScan={() => setCurrentView('SCAN')} 
                     onCitizenRegister={() => setCurrentView('REGISTER_CITIZEN')} 
+                    onExploreMap={() => setCurrentView('MAP')}
                   />
                   <ImpactMatrix />
                   <HackathonJury />
@@ -135,7 +137,14 @@ function AppContent() {
               }
               return <Dashboard businesses={businesses} reports={reports} onUpdateStatus={updateStatus} />;
             default:
-              return <Hero onRegister={() => setCurrentView('REGISTER')} onScan={() => setCurrentView('SCAN')} onCitizenRegister={() => setCurrentView('REGISTER_CITIZEN')} />;
+              return (
+                <Hero 
+                  onRegister={() => setCurrentView('REGISTER')} 
+                  onScan={() => setCurrentView('SCAN')} 
+                  onCitizenRegister={() => setCurrentView('REGISTER_CITIZEN')} 
+                  onExploreMap={() => setCurrentView('MAP')}
+                />
+              );
           }
         })()}
       </Suspense>

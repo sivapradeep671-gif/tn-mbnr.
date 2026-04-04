@@ -1,12 +1,27 @@
 # 💎 TN-MBNR: TrustReg TN
 ### Enterprise-Grade Business Intelligence & Fraud Prevention
 
-[![CI/CD Pipeline](https://github.com/yourusername/TN-MBNR/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/yourusername/TN-MBNR/actions)
+[![CI/CD Pipeline](https://github.com/sivapradeep671-gif/TN-MBNR/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/sivapradeep671-gif/TN-MBNR/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
 [![AI-Powered](https://img.shields.io/badge/AI-Gemini%202.0%20Flash-orange.svg)](https://deepmind.google/technologies/gemini/)
 
 **TN-MBNR (TrustReg TN)** is a high-fidelity, blockchain-enabled civic platform designed for the **Tamil Nadu Government**. It leverages Artificial Intelligence and Cryptographic Ledgers to prevent business fraud, protect small entrepreneurs, and provide citizens with a "Single Source of Truth" for commercial verification.
+
+> [!NOTE]
+> **STUDENT PROJECT PROTOTYPE**: This platform is developed as a high-fidelity academic prototype for e-governance innovation. While it uses production-grade design (Cyber-Industrial aesthetic) and real API integrations (Gemini AI), the blockchain and municipal payment layers are modeled as high-fidelity simulations for demonstration.
+
+---
+
+### 📚 Table of Contents
+1. [🌟 Strategic Features](#-strategic-features)
+2. [🏗️ System Architecture](#️-system-architecture)
+3. [🚀 Quick Start](#-quick-start)
+4. [📖 User Guides](#-user-guides)
+5. [🔌 API Documentation](#-api-documentation)
+6. [📊 Fraud Detection](#-fraud-detection-features)
+7. [🔐 Security & Compliance](#-security-features)
+8. [🗺️ Project Roadmap](#️-roadmap)
 
 ---
 
@@ -69,7 +84,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/tn-mbnr.git
+git clone https://github.com/sivapradeep671-gif/TN-MBNR.git
 cd tn-mbnr
 
 # Install dependencies
@@ -193,10 +208,26 @@ Frontend runs on http://localhost:5173
 - Google Gemini AI (verification)
 - Crypto-JS (token signing)
 
+### 🗺️ System Architecture
+
+```mermaid
+graph TD
+    Citizen[Citizen / Consumer] -->|Scan QR| App[TrustReg PWA]
+    App -->|Verify HMAC| API[Node.js API Gateway]
+    API -->|Risk Cache| DB[(SQLite / Spatial DB)]
+    API -->|Audit Trail| BC[Blockchain Ledger]
+    API -->|Risk Analysis| AI[Gemini 2.0 AI]
+    
+    Merchant[Business Owner] -->|Register| API
+    Officer[Municipal Officer] -->|Review/Approve| API
+    API -->|Issue License| Merchant
+```
+
 **Blockchain:**
 - Custom blockchain implementation
 - SHA-256 hashing
 - Proof-of-work consensus
+- **Simulation Note:** The ledger is persisted in SQLite for academic demonstration of immutable audit trails.
 
 ### Database Schema
 
@@ -529,7 +560,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Developed for:** Tamil Nadu Government  
 **Purpose:** Municipal business verification and fraud prevention  
-**Contact:** admin@tn.gov.in
+**Contact:** admin@tn-mbnr@gmail.com
 
 ---
 
@@ -545,8 +576,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For issues and questions:
-- **Email:** support@tn-mbnr.gov.in
-- **GitHub Issues:** [Create an issue](https://github.com/yourusername/tn-mbnr/issues)
+- **Email:** support@tn-mbnr@gmail.com
+- **GitHub Issues:** [Create an issue](https://github.com/sivapradeep671-gif/TN-MBNR/issues)
 - **Documentation:** See [`TESTING_GUIDE.md`](./TESTING_GUIDE.md)
 
 ---

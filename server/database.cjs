@@ -61,7 +61,14 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 db.run("ALTER TABLE businesses ADD COLUMN assessment_number TEXT", () => { });
                 db.run("ALTER TABLE businesses ADD COLUMN water_connection_no TEXT", () => { });
                 // Add Website field
-                db.run("ALTER TABLE businesses ADD COLUMN website TEXT", () => { });
+                // Add municipal fields
+                db.run("ALTER TABLE businesses ADD COLUMN municipal_ward TEXT", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN nic_category TEXT", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN employee_count INTEGER DEFAULT 0", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN application_type TEXT DEFAULT 'NEW'", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN sla_deadline_at TEXT", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN aadhaar_no TEXT", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN documents_metadata TEXT", () => { });
             }
         });
 
@@ -117,10 +124,64 @@ const db = new sqlite3.Database(dbPath, (err) => {
             }
         });
 
+        // Registry Approvals table for formal workflow
+        db.run(`CREATE TABLE IF NOT EXISTS registry_approvals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            registry_id TEXT,
+            stage TEXT,
+            status TEXT,
+            acted_by_user_id TEXT,
+            acted_by_role TEXT,
+            acted_at TEXT DEFAULT (datetime('now')),
+            comments TEXT,
+            order_ref_no TEXT,
+            valid_from TEXT,
+            valid_to TEXT,
+            attachment_url TEXT,
+            FOREIGN KEY (registry_id) REFERENCES businesses(id)
+        )`, (err) => {
+            if (err) {
+                console.error('Error creating registry_approvals table', err.message);
+            } else {
+                console.log('Registry Approvals table ready.');
+            }
+        });
+ 
+        // Settings Table for Dynamic Rules (SLAs, Fees, etc)
+        db.run(`CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            description TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )`, (err) => {
+            if (!err) {
+                // Initialize default SLAs
+                db.run("INSERT OR IGNORE INTO settings (key, value, description) VALUES (?,?,?)", ['SLA_DAYS_NEW', '15', 'Days for new registration processing']);
+                db.run("INSERT OR IGNORE INTO settings (key, value, description) VALUES (?,?,?)", ['SLA_DAYS_AMENDMENT', '7', 'Days for amendment processing']);
+                db.run("INSERT OR IGNORE INTO settings (key, value, description) VALUES (?,?,?)", ['SLA_DAYS_RENEWAL', '10', 'Days for renewal processing']);
+            }
+        });
+
         // Create indexes for performance
         db.run(`CREATE INDEX IF NOT EXISTS idx_scans_business ON scans(business_id)`, () => { });
         db.run(`CREATE INDEX IF NOT EXISTS idx_scans_result ON scans(result)`, () => { });
         db.run(`CREATE INDEX IF NOT EXISTS idx_scans_date ON scans(scanned_at)`, () => { });
+        db.run(`CREATE INDEX IF NOT EXISTS idx_biz_name ON businesses(tradeName)`, () => { });
+        db.run(`CREATE INDEX IF NOT EXISTS idx_biz_status ON businesses(status)`, () => { });
+        // Seed data for demo
+        db.get("SELECT COUNT(*) as count FROM businesses", [], (err, row) => {
+            if (row && row.count === 0) {
+                console.log("Seeding initial demo businesses...");
+                const businesses = [
+                    ['KPN-001', 'KPN Travels India Pvt Ltd', 'KPN Travels', 'LTD', 'Transport', 'Madurai Main Road', 'madurai_proof.pdf', 'Madurai HO', '9876543210', 'contact@kpntravels.com', '33AAACK1234A1Z1', 'Verified', new Date().toISOString(), 2, 13.0694, 80.1914],
+                    ['SVR-002', 'Saravana Bhavan Ltd', 'Hotel Saravana Bhavan', 'PVT', 'F&B', 'T.Nagar, Chennai', 'tn_proof.pdf', 'T.Nagar Branch', '9840123456', 'info@saravanabhavan.com', '33AAACS1234S1Z1', 'Verified', new Date().toISOString(), 1, 13.0406, 80.2337],
+                    ['GRT-003', 'GRT Regency Madurai', 'GRT Regency', 'PVT', 'Hospitality', 'Palanganatham, Madurai', 'grt_proof.pdf', 'Madurai East', '04522371400', 'reservations@grtregency.com', '33AAACG1234G1Z1', 'Pending', new Date(Date.now() - 86400000 * 3).toISOString(), 3, 9.9077, 78.1027]
+                ];
+
+                const insertSql = `INSERT INTO businesses (id, legalName, tradeName, type, category, address, proofOfAddress, branchName, contactNumber, email, gstNumber, status, registrationDate, riskScore, latitude, longitude) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+                businesses.forEach(b => db.run(insertSql, b));
+            }
+        });
     }
 });
 

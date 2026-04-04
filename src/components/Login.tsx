@@ -21,8 +21,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         try {
             await login(phone, role);
             onLoginSuccess(role);
-        } catch (err: any) {
-            setError(err.message || 'Authentication failed. Please try again.');
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Authentication failed';
+            setError(errorMsg || 'Authentication failed. Please try again.');
         } finally {
             setIsLoading(false);
         }

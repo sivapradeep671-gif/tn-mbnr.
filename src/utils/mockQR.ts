@@ -1,6 +1,6 @@
 import type { ScanResult } from '../types/scan';
 
-export const verifyMockToken = (token: string, _location: { lat: number, lng: number }): ScanResult => {
+export const verifyMockToken = (token: string): ScanResult => {
     const isKPN = token.includes('KPN') || token.toLowerCase().includes('kpn');
     
     if (isKPN) {

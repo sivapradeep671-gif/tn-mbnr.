@@ -10,6 +10,7 @@ import { showToast } from '../hooks/useToast';
 import { api } from '../api/client';
 
 // Fix for default marker icons in React-Leaflet
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -153,6 +154,11 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
         property_tax_status: 'Pending',
         water_tax_status: 'Pending',
         professional_tax_status: 'Pending',
+        municipal_ward: '',
+        nic_category: '',
+        employee_count: 0,
+        application_type: 'NEW',
+        aadhaar_no: ''
     });
 
     // Validation State
@@ -219,7 +225,7 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             // Duplicate Check
             if (formData.tradeName) {
                 const isDuplicate = businesses.some(b =>
-                    b.tradeName.toLowerCase() === formData.tradeName?.toLowerCase() &&
+                    (b.tradeName || '').toLowerCase() === (formData.tradeName || '').toLowerCase() &&
                     b.status !== 'Rejected'
                 );
                 if (isDuplicate) {
@@ -322,7 +328,7 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
         setAnalysisResult(null);
         try {
             // Step 1: Backend Name Verification
-            const nameResult = await api.post<any>('/api/verify-business', { 
+            const nameResult = await api.post<AnalysisResult>('/api/verify-business', { 
                 businessName: formData.tradeName, 
                 type: formData.type 
             });
@@ -372,7 +378,7 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             };
 
             // Attempt Real Backend Registration via typed client
-            const response = await api.post<any>('/api/businesses', payload);
+            const response = await api.post<{ data: Partial<Business> }>('/api/businesses', payload);
             
             const registered = { 
                 ...payload, 
@@ -429,7 +435,7 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                                 <Database className="h-5 w-5" />
                                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">Blockchain ID</span>
                             </div>
-                            <h4 className="text-white font-mono text-lg break-all">{registeredBusiness.id.slice(0, 16)}...</h4>
+                            <h4 className="text-white font-mono text-lg break-all">{(registeredBusiness.id || '').slice(0, 16)}...</h4>
                             <p className="text-slate-500 text-xs font-medium">Unique cryptographic identifier for your legal record.</p>
                         </div>
                     </div>
@@ -541,37 +547,94 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                         />
                     </div>
 
-                    {/* GST Number */}
-                    <InputField
-                        label={t.register.labels.gst}
-                        name="gstNumber"
-                        value={formData.gstNumber || ''}
-                        onChange={handleInputChange}
-                        onBlur={handleBlur}
-                        error={errors.gstNumber}
-                        touched={touched.gstNumber}
-                        placeholder={t.register.placeholders.gst}
-                    />
-
-                    {/* Logo Upload */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-400 mb-2">{t.register.labels.logo}</label>
-                        <div className="border-2 border-dashed border-slate-700 rounded-lg p-6 text-center hover:border-yellow-500 transition-colors cursor-pointer relative group">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setLogoFile(e.target.files ? e.target.files[0] : null)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    {/* Regulatory & Human Capital */}
+                    <div className="glass-card bg-white/[0.02] p-8 rounded-[2rem] border-white/5 relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500 opacity-20" />
+                        <h3 className="text-xl h-display mb-4 flex items-center gap-3">
+                            <Activity className="h-6 w-6 text-yellow-500" />
+                            Regulatory <span className="text-glow">Compliance</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <InputField
+                                type="select"
+                                label={t.register.labels.nic_category}
+                                name="nic_category"
+                                value={formData.nic_category || ''}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                options={['', 'Manufacturing', 'Retail Trade', 'Wholesale Trade', 'Financial Services', 'Hospitality', 'IT & Software', 'Other Services']}
                             />
-                            <div className="transform group-hover:scale-110 transition-transform duration-300">
-                                <Upload className="h-10 w-10 text-slate-500 mx-auto mb-2 text-yellow-500" />
-                            </div>
-                            <p className="text-slate-400">{logoFile ? logoFile.name : t.register.labels.upload_logo}</p>
-                            <p className="text-xs text-slate-600 mt-1">Supports JPG, PNG</p>
+                            <InputField
+                                type="number"
+                                label={t.register.labels.employee_count}
+                                name="employee_count"
+                                value={formData.employee_count || 0}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                            />
+                            <InputField
+                                label={t.register.labels.aadhaar_secure}
+                                name="aadhaar_no"
+                                value={formData.aadhaar_no || ''}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                placeholder="XXXX-XXXX-XXXX"
+                            />
+                            <InputField
+                                label={t.register.labels.gst}
+                                name="gstNumber"
+                                value={formData.gstNumber || ''}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                error={errors.gstNumber}
+                                touched={touched.gstNumber}
+                                placeholder={t.register.placeholders.gst}
+                            />
                         </div>
                     </div>
 
-                    {/* Address */}
+                    {/* Document Management Section */}
+                    <div className="glass-card bg-white/[0.02] p-8 rounded-[2rem] border-white/5 relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-green-500 opacity-20" />
+                        <h3 className="text-xl h-display mb-8 flex items-center gap-3">
+                            <Shield className="h-6 w-6 text-green-500" />
+                            Identity & <span className="text-glow">Asset Proofs</span>
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Logo Upload */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Enterprise Logo</label>
+                                <div className="border border-dashed border-white/10 rounded-2xl p-4 text-center hover:border-yellow-500 transition-colors cursor-pointer relative h-32 flex flex-col items-center justify-center">
+                                    <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files ? e.target.files[0] : null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <Upload className="h-6 w-6 text-slate-500 mb-2" />
+                                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">{logoFile ? logoFile.name.slice(0, 15) : 'Upload Logo'}</p>
+                                </div>
+                            </div>
+
+                            {/* Address Proof */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Address Proof (Lease/Tax)</label>
+                                <div className="border border-dashed border-white/10 rounded-2xl p-4 text-center hover:border-green-500 transition-colors cursor-pointer relative h-32 flex flex-col items-center justify-center">
+                                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <Database className="h-6 w-6 text-slate-500 mb-2" />
+                                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Select PDF/Image</p>
+                                </div>
+                            </div>
+
+                            {/* Identity Proof */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Identity Proof (Aadhaar/PAN)</label>
+                                <div className="border border-dashed border-white/10 rounded-2xl p-4 text-center hover:border-green-500 transition-colors cursor-pointer relative h-32 flex flex-col items-center justify-center">
+                                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                                    <Building2 className="h-6 w-6 text-slate-500 mb-2" />
+                                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Mandatory Upload</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Address & Logistics */}
                     <InputField
                         type="textarea"
                         label={t.register.labels.address}
@@ -626,6 +689,15 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                             Synchronize your commercial assessment data with the unified regional e-governance grid.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <InputField
+                                type="select"
+                                label={t.register.labels.municipal_ward}
+                                name="municipal_ward"
+                                value={formData.municipal_ward || ''}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                options={['', 'Ward 1', 'Ward 2', 'Ward 3', 'Ward 4', 'Ward 5', 'Ward 6', 'Ward 7', 'Ward 8', 'Ward 9', 'Ward 10']}
+                            />
                             <InputField
                                 label="Property Tax Assessment No."
                                 name="assessment_number"

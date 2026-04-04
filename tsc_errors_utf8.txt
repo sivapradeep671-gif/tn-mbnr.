@@ -1,0 +1,2 @@
+﻿src/components/Dashboard.tsx(2,110): error TS6133: 'BarChart3' is declared but its value is never read.
+

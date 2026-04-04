@@ -1,6 +1,6 @@
 import L from 'leaflet';
 
-export const getIconByStatus = (status: string, _riskScore?: number) => {
+export const getIconByStatus = (status: string) => {
     // Create a generic styled div icon instead of default marker
     const color = status === 'Verified' ? 'green' : (status === 'Pending' ? 'orange' : 'red');
 

@@ -1,13 +1,15 @@
 // Centralized API Client
 
+import { config } from '../config';
+
 class ApiClient {
-    private baseUrl: string = import.meta.env.VITE_API_URL || '/api';
+    private baseUrl: string = config.apiUrl;
 
     private getHeaders() {
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
         };
-        const token = localStorage.getItem('tn_mbnr_token');
+        const token = localStorage.getItem(config.auth.tokenKey);
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
@@ -42,7 +44,7 @@ class ApiClient {
                 headers: { 'Accept': 'application/json' }
             });
             return response.ok;
-        } catch (e) {
+        } catch {
             return false;
         }
     }
@@ -54,7 +56,7 @@ class ApiClient {
         return this.handleResponse<T>(response);
     }
 
-    async post<T>(endpoint: string, body: any): Promise<T> {
+    async post<T>(endpoint: string, body: unknown): Promise<T> {
         const response = await fetch(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: this.getHeaders(),
@@ -63,7 +65,7 @@ class ApiClient {
         return this.handleResponse<T>(response);
     }
 
-    async put<T>(endpoint: string, body: any): Promise<T> {
+    async put<T>(endpoint: string, body: unknown): Promise<T> {
         const response = await fetch(`${this.baseUrl}${endpoint}`, {
             method: 'PUT',
             headers: this.getHeaders(),
@@ -74,7 +76,7 @@ class ApiClient {
 
     async upload<T>(endpoint: string, formData: FormData): Promise<T> {
         const headers: HeadersInit = {};
-        const token = localStorage.getItem('tn_mbnr_token');
+        const token = localStorage.getItem(config.auth.tokenKey);
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }

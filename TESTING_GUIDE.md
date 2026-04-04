@@ -22,9 +22,12 @@ npm run test:run
 
 ### Key Test Suites:
 1.  **Blockchain (`server/blockchain.test.ts`)**: Verifies block integrity and chain validation.
-2.  **ID Generation (`src/utils/generateId.test.ts`)**: Ensures UUID consistency.
-3.  **Translations (`src/utils/translations.test.ts`)**: Validates key-value consistency between English and Tamil.
-4.  **Mock Verification (`src/utils/mockQR.test.ts`)**: Tests the geofence and signature logic in isolation.
+2.  **License Logic (`server/licenseStatus.test.ts`)**: Tests expiration and grace period calculations.
+3.  **Business Hook (`src/hooks/useBusinesses.test.ts`)**: Core logic for data sync and registration.
+4.  **Voice Component (`src/components/VoiceInput.test.tsx`)**: Verified speech recognition lifecycle and UI states.
+5.  **ID Generation (`src/utils/generateId.test.ts`)**: Ensures UUID consistency.
+6.  **Translations (`src/utils/translations.test.ts`)**: Validates key-value consistency between English and Tamil.
+7.  **Mock Verification (`src/utils/mockQR.test.ts`)**: Tests the geofence and signature logic in isolation.
 
 ## 📱 Manual Demo Flow (90 Seconds)
 

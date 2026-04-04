@@ -13,38 +13,86 @@ interface MerchantDashboardProps {
 
 export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }) => {
     const { t } = useLanguage();
-    const { } = useAuth();
+    useAuth();
     const [qrToken, setQrToken] = useState<string>('');
     const [timeLeft, setTimeLeft] = useState<number>(0);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [stats] = useState({ total: 156, verified: 150, failed: 6 });
 
+
+
     const generateCertificate = () => {
-        showToast('Generating Secure Certificate...', 'success');
-        setTimeout(() => {
-            const content = `
-                TRUSTREG TN - CERTIFICATE OF AUTHENTICITY
-                -----------------------------------------
-                Business Name: ${business.tradeName}
-                Legal Entity: ${business.legalName}
-                Registration ID: ${business.id}
-                Status: VERIFIED & AUTHENTICATED
-                Date of Issue: ${new Date().toLocaleDateString()}
-                
-                Blockchain Fingerprint: ${Math.random().toString(16).substr(2, 32)}
-                This document serves as digital proof of municipal registration.
-            `;
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `TrustReg-Certificate-${business.tradeName}.txt`;
-            a.click();
-            showToast('Certificate Generated Successfully', 'success');
-        }, 1500);
+        showToast('Generating official municipal certificate...', 'success');
+        // Simulated license data based on TN Business Facilitation Act 2018
+        const licenseData = {
+            id: business.id,
+            tradeName: business.tradeName,
+            legalName: business.legalName,
+            address: business.address,
+            ward: business.municipal_ward || 'W01',
+            nic: business.nic_category || 'Commercial',
+            issuedAt: new Date().toLocaleDateString(),
+            expiryAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+            hash: btoa(business.id + Date.now()).substring(0, 16).toUpperCase()
+        };
+
+        const win = window.open('', '_blank');
+        if (win) {
+            win.document.write(`
+                <html>
+                    <head>
+                        <title>Official License | Government of Tamil Nadu</title>
+                        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;900&display=swap" rel="stylesheet">
+                        <style>
+                            body { margin: 0; padding: 40px; font-family: 'Outfit', sans-serif; background: #020617; color: #fff; }
+                            .license-card { border: 10px solid #eab308; padding: 60px; min-height: 80vh; position: relative; border-radius: 40px; }
+                            .header { text-align: center; margin-bottom: 60px; }
+                            .logo { color: #eab308; font-size: 48px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+                            .subtitle { color: #64748b; font-weight: 900; letter-spacing: 0.3em; text-transform: uppercase; font-size: 12px; }
+                            .content { margin-top: 40px; line-height: 2; font-size: 18px; }
+                            .field { margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+                            .label { color: #64748b; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; display: block; }
+                            .value { font-weight: 600; font-size: 20px; }
+                            .seal-box { position: absolute; bottom: 60px; right: 60px; text-align: center; }
+                            .qr-placeholder { width: 120px; height: 120px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 10px; }
+                            .blockchain-badge { font-family: monospace; font-size: 10px; color: #eab308; opacity: 0.7; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="license-card">
+                            <div class="header">
+                                <div class="logo">TrustReg TN</div>
+                                <div class="subtitle">Government of Tamil Nadu • Business Registry License</div>
+                            </div>
+                            <div class="content">
+                                <div class="field"><span class="label">Trade Name</span><span class="value">${licenseData.tradeName}</span></div>
+                                <div class="field"><span class="label">Legal Entity</span><span class="value">${licenseData.legalName}</span></div>
+                                <div class="field"><span class="label">Registered Address</span><span class="value">${licenseData.address}</span></div>
+                                <div class="grid" style="display: grid; grid-template-cols: 1fr 1fr; gap: 40px;">
+                                    <div class="field"><span class="label">Municipal Ward</span><span class="value">${licenseData.ward}</span></div>
+                                    <div class="field"><span class="label">NIC Category</span><span class="value">${licenseData.nic}</span></div>
+                                </div>
+                                <div class="grid" style="display: grid; grid-template-cols: 1fr 1fr; gap: 40px;">
+                                    <div class="field"><span class="label">Date of Issue</span><span class="value">${licenseData.issuedAt}</span></div>
+                                    <div class="field"><span class="label">Valid Until</span><span class="value">${licenseData.expiryAt}</span></div>
+                                </div>
+                            </div>
+                            <div class="seal-box">
+                                <div class="qr-placeholder">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=TN-MBNR-${licenseData.id}-${licenseData.hash}" />
+                                </div>
+                                <div class="blockchain-badge">VERIFIED LEDGER HASH: ${licenseData.hash}</div>
+                            </div>
+                        </div>
+                    </body>
+                </html>
+            `);
+            win.document.close();
+            win.print();
+        }
     };
 
-    const fetchNewToken = async () => {
+    const fetchNewToken = React.useCallback(async () => {
         setIsLoading(true);
         try {
             const response = await api.get<{ token: string, expiresAt: number }>(`/qr-token/${business.id}`);
@@ -59,7 +107,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [business.id, business.latitude, business.longitude]);
 
     useEffect(() => {
         fetchNewToken();
@@ -73,7 +121,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
             });
         }, 1000);
         return () => clearInterval(interval);
-    }, [business.id]);
+    }, [fetchNewToken]);
 
     const downloadQR = () => {
         const svg = document.getElementById('merchant-qr');
@@ -130,33 +178,73 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
                                         </div>
                                     </div>
 
-                                    <div className="bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                                     <div className="bg-white/[0.02] p-6 rounded-2xl border border-white/5">
                                         <div className="flex items-center gap-3 mb-4">
                                             <MapPin className="h-5 w-5 text-yellow-500" />
                                             <span className="text-[10px] sm:text-xs text-slate-500 font-black uppercase tracking-widest">{t.scanner.labels.reg_location}</span>
                                         </div>
                                         <p className="text-white text-sm font-medium leading-relaxed">{business.address}</p>
-                                        <div className="mt-4 pt-4 border-t border-white/5 flex gap-4 text-[10px] font-mono text-slate-500">
-                                            <span>LAT: {business.latitude?.toFixed(4) || '0.0000'}</span>
-                                            <span>LNG: {business.longitude?.toFixed(4) || '0.0000'}</span>
+                                        <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-2">
+                                            <div className="flex justify-between text-[10px] font-mono text-slate-500 uppercase">
+                                                <span>Ward: {business.municipal_ward || 'UNASSIGNED'}</span>
+                                                <span>NIC: {business.nic_category || 'GENERIC'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px] font-mono text-slate-500 uppercase">
+                                                <span>LAT: {business.latitude?.toFixed(4) || '0.0000'}</span>
+                                                <span>LNG: {business.longitude?.toFixed(4) || '0.0000'}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     
-                                    <button 
-                                        className="w-full py-4 bg-white text-slate-950 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-yellow-500 transition-all flex items-center justify-center gap-3 active:scale-95 mb-4"
-                                        onClick={generateCertificate}
-                                    >
-                                        <FileText className="h-4 w-4" />
-                                        Download Certificate
-                                    </button>
+                                    {/* Action Portal */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button 
+                                            className="py-4 bg-white text-slate-950 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:bg-yellow-500 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                            onClick={generateCertificate}
+                                        >
+                                            <FileText className="h-4 w-4" />
+                                            Certificate
+                                        </button>
+                                        <button 
+                                            className="py-4 bg-white/5 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                            onClick={() => showToast('Redirecting to Amendment Form...', 'success')}
+                                        >
+                                            <RefreshCw className="h-4 w-4" />
+                                            Amend
+                                        </button>
+                                        <button 
+                                            className="py-4 bg-yellow-500/10 text-yellow-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-yellow-500/20 hover:bg-yellow-500/20 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                            onClick={() => showToast('Opening Renewal Portal...', 'success')}
+                                        >
+                                            <Shield className="h-4 w-4" />
+                                            Renew
+                                        </button>
+                                        <button 
+                                            className="py-4 bg-red-500/10 text-red-500 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center justify-center gap-3 active:scale-95"
+                                            onClick={() => showToast('Initiating Surrender Process...', 'warning')}
+                                        >
+                                            <Zap className="h-4 w-4" />
+                                            Surrender
+                                        </button>
+                                    </div>
 
-                                    <button 
-                                        className="w-full py-4 bg-white/5 text-white/50 rounded-2xl font-black text-xs uppercase tracking-[0.2em] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-3 active:scale-95"
-                                        onClick={() => showToast('Syncing with Municipality Network...', 'success')}
-                                    >
-                                        <RefreshCw className="h-4 w-4" />
-                                        Request Data Audit
-                                    </button>
+                                    {/* SLA Status Card */}
+                                    {business.status === 'Pending' && business.sla_deadline_at && (
+                                        <div className="bg-slate-900 border border-white/5 p-6 rounded-2xl animate-pulse">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">SLA Deadline Watch</span>
+                                                <span className="text-[10px] text-yellow-500 font-mono">
+                                                    {Math.max(0, Math.ceil((new Date(business.sla_deadline_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000)))} Days Left
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,1)]"
+                                                    style={{ width: `${Math.min(100, (Math.max(0, Math.ceil((new Date(business.sla_deadline_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000))) / 15) * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-slate-950 p-8 rounded-[2rem] border border-white/5 shadow-inner relative group/qr overflow-hidden flex flex-col items-center">

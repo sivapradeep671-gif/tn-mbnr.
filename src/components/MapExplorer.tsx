@@ -94,7 +94,7 @@ export const MapExplorer: React.FC<MapExplorerProps> = ({ businesses, reports })
                             ? [business.latitude, business.longitude]
                             : business.coordinates
                                 ? [business.coordinates.lat, business.coordinates.lng]
-                                : (business.id.length >= 4 ? [
+                                : ((business.id && business.id.length >= 4) ? [
                                     centerPosition[0] + (parseInt(business.id.slice(-2), 16) / 256 - 0.5) * 4,
                                     centerPosition[1] + (parseInt(business.id.slice(-4, -2), 16) / 256 - 0.5) * 4
                                 ] : undefined);
@@ -125,7 +125,7 @@ export const MapExplorer: React.FC<MapExplorerProps> = ({ businesses, reports })
                                                     }`}>
                                                     {business.status ? business.status : 'UNKNOWN'}
                                                 </div>
-                                                <p className="text-[9px] font-black text-slate-400">ID: {business.id.slice(0, 8)}</p>
+                                                <p className="text-[9px] font-black text-slate-400">ID: {(business.id || '').slice(0, 8)}</p>
                                             </div>
                                         </div>
                                     </div>
