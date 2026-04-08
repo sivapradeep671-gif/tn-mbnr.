@@ -1,8 +1,13 @@
 import L from 'leaflet';
 
-export const getIconByStatus = (status: string) => {
+export function getIconByStatus(status: string, riskScore?: number) {
+    const score = riskScore ?? 0;
     // Create a generic styled div icon instead of default marker
-    const color = status === 'Verified' ? 'green' : (status === 'Pending' ? 'orange' : 'red');
+    let color = status === 'Verified' ? 'green' : (status === 'Pending' ? 'orange' : 'red');
+    
+    // High risk overrides status color for visibility
+    if (score > 7) color = 'red';
+    else if (score > 4 && status === 'Verified') color = 'orange';
 
     return L.divIcon({
         className: 'custom-div-icon',
@@ -10,4 +15,4 @@ export const getIconByStatus = (status: string) => {
         iconSize: [16, 16],
         iconAnchor: [8, 8]
     });
-};
+}

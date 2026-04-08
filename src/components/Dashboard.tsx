@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Database, Activity, ShieldCheck, Zap, AlertTriangle, MapPin, Bot } from 'lucide-react';
+import { LayoutDashboard, Database, Activity, ShieldCheck, Zap, AlertTriangle, MapPin, Bot, Search } from 'lucide-react';
 import { aiService } from '../services/geminiService';
 import type { Business, CitizenReport } from '../types/types';
 import { api } from '../api/client';
 import { AdminAnalytics } from './AdminAnalytics';
 import { ApprovalWorkflow } from './ApprovalWorkflow';
+import { BlockchainLedger } from './BlockchainLedger';
+import { FieldAuditSimulator } from './FieldAuditSimulator';
 
 interface DashboardProps {
     businesses: Business[];
     reports: CitizenReport[];
+    onUpdateStatus?: (id: string, status: 'Verified' | 'Rejected') => Promise<void>;
 }
 
 interface SuspiciousScan {
@@ -29,8 +32,8 @@ interface RiskyShop {
     risk_score: number;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => {
-    const [activeTab, setActiveTab] = useState<'businesses' | 'reports' | 'analytics' | 'prediction' | 'approvals'>('businesses');
+export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpdateStatus }) => {
+    const [activeTab, setActiveTab] = useState<'businesses' | 'reports' | 'analytics' | 'prediction' | 'approvals' | 'field_test'>('businesses');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [predictionModel, setPredictionModel] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +42,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
     const [riskyShops, setRiskyShops] = useState<RiskyShop[]>([]);
     const [pendingApprovals, setPendingApprovals] = useState<Business[]>([]);
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+    const [slaFilter, setSlaFilter] = useState<'ALL' | 'COMPLIANT' | 'URGENT' | 'BREACHED'>('ALL');
+    const [isLedgerOpen, setIsLedgerOpen] = useState(false);
+    const [ledgerAssetId, setLedgerAssetId] = useState<string | undefined>(undefined);
+    const [fullLedger, setFullLedger] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -52,8 +59,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
 
                 const approvalsRes = await api.get<{ data: Business[] }>('/admin/pending-approvals');
                 setPendingApprovals(approvalsRes.data);
-            } catch (e) {
-                console.error("Failed to fetch admin stats:", e);
+
+                const ledgerRes = await api.get<{ data: any[] }>('/ledger');
+                setFullLedger(ledgerRes.data);
+            } catch (err) {
+                console.error("Failed to fetch admin stats:", err);
                 setRealShops(businesses);
             }
         };
@@ -91,11 +101,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
         }).length
     };
 
-    const filteredBusinesses = displayShops.filter((b: Business) => 
-        (b.tradeName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-        (b.legalName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-        (b.id || '').toLowerCase().includes((searchTerm || '').toLowerCase())
-    );
+    const filteredBusinesses = displayShops.filter((b: Business) => {
+        const matchesSearch = (b.tradeName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+            (b.legalName || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
+            (b.id || '').toLowerCase().includes((searchTerm || '').toLowerCase());
+            
+        if (!matchesSearch) return false;
+        
+        if (slaFilter === 'ALL') return true;
+        
+        const isPending = b.status === 'Pending';
+        const deadline = b.sla_deadline_at ? new Date(b.sla_deadline_at) : null;
+        const now = new Date();
+        
+        if (slaFilter === 'COMPLIANT') return !isPending || (deadline && deadline > now);
+        if (slaFilter === 'URGENT') {
+            if (!isPending || !deadline) return false;
+            const diff = deadline.getTime() - now.getTime();
+            return diff > 0 && diff < (3 * 24 * 60 * 60 * 1000);
+        }
+        if (slaFilter === 'BREACHED') return isPending && deadline && deadline < now;
+        
+        return true;
+    });
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-12 reveal-up">
@@ -141,6 +169,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
                     >
                         AI Pulse
                     </button>
+                    <button 
+                        onClick={() => setActiveTab('field_test')}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'field_test' ? 'bg-yellow-500 text-slate-950 shadow-2xl shadow-yellow-500/30' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Audit Sim
+                    </button>
                 </div>
             </div>
 
@@ -169,17 +203,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
                             <Database className="h-4 w-4 text-yellow-500" />
                             Master Asset Registry
                         </h3>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                                <Database className="h-3 w-3 text-slate-500" />
+                        <div className="flex items-center gap-6">
+                            <button 
+                                onClick={() => {
+                                    setLedgerAssetId(undefined);
+                                    setIsLedgerOpen(true);
+                                }}
+                                className="group/audit flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl hover:bg-yellow-500 hover:text-slate-950 transition-all active:scale-95"
+                            >
+                                <Database className="h-3 w-3 group-hover/audit:animate-spin" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-yellow-500 group-hover/audit:text-slate-950">Full Audit Trail</span>
+                            </button>
+                            <div className="flex bg-slate-950 p-1 rounded-xl border border-white/5">
+                                {[
+                                    { id: 'ALL', label: 'All' },
+                                    { id: 'COMPLIANT', label: 'Compliant' },
+                                    { id: 'URGENT', label: 'Urgent' },
+                                    { id: 'BREACHED', label: 'Breached' }
+                                ].map(f => (
+                                    <button
+                                        key={f.id}
+                                        onClick={() => setSlaFilter(f.id as any)}
+                                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                            slaFilter === f.id 
+                                                ? 'bg-white/10 text-white shadow-xl' 
+                                                : 'text-slate-500 hover:text-slate-300'
+                                        }`}
+                                    >
+                                        {f.label}
+                                    </button>
+                                ))}
                             </div>
-                            <input 
-                                type="text"
-                                placeholder="Search by Trade Name / ID..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-slate-950 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-[10px] text-white focus:border-yellow-500/50 outline-none w-64 transition-all"
-                            />
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                                    <Search className="h-3 w-3 text-slate-500" />
+                                </div>
+                                <input 
+                                    type="text"
+                                    placeholder="Search by Trade Name / ID..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="bg-slate-950 border border-white/5 rounded-xl py-2 pl-10 pr-4 text-[10px] text-white focus:border-yellow-500/50 outline-none w-64 transition-all"
+                                />
+                            </div>
                         </div>
                     </div>
                     <div className="overflow-x-auto">
@@ -190,7 +256,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
                                     <th className="px-8 py-5">Infrastructure / Ward</th>
                                     <th className="px-8 py-5">Governance Status</th>
                                     <th className="px-8 py-5">Total Scans</th>
-                                    <th className="px-8 py-5">Compliance</th>
+                                    <th className="px-8 py-5">Audit Trail</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-white/[0.03]">
@@ -225,12 +291,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden min-w-[60px]">
-                                                    <div className={`h-full ${ (biz.riskScore || 0) > 7 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${(biz.riskScore || 0) * 10}%` }}></div>
-                                                </div>
-                                                <span className="text-[10px] text-slate-500 font-mono">{(biz.riskScore || 0).toFixed(1)}</span>
-                                            </div>
+                                            <button 
+                                                onClick={() => {
+                                                    setLedgerAssetId(biz.id);
+                                                    setIsLedgerOpen(true);
+                                                }}
+                                                className="group/btn flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg hover:bg-yellow-500 hover:text-slate-950 transition-all active:scale-95"
+                                            >
+                                                <Database className="h-3 w-3 group-hover/btn:rotate-12 transition-transform" />
+                                                <span className="text-[9px] font-black uppercase tracking-widest">View History</span>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -344,12 +414,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
                             <ApprovalWorkflow 
                                 business={selectedBusiness} 
                                 isAdmin={true} 
-                                onUpdate={async () => {
+                                onUpdate={async (newStatus) => {
                                     // Refresh the queue
                                     const approvalsRes = await api.get<{ data: Business[] }>('/admin/pending-approvals');
                                     setPendingApprovals(approvalsRes.data);
+                                    
+                                    // Sync with global hook state if it's a final decision
+                                    if (onUpdateStatus && selectedBusiness && (newStatus === 'APPROVED' || newStatus === 'REJECTED')) {
+                                        await onUpdateStatus(selectedBusiness.id, newStatus === 'APPROVED' ? 'Verified' : 'Rejected');
+                                    }
+
                                     // Also update selected business if it's still in the queue (or just close view)
-                                    const updated = approvalsRes.data.find(b => b.id === selectedBusiness.id);
+                                    const updated = (approvalsRes.data || []).find(b => b.id === selectedBusiness?.id);
                                     if (!updated) setSelectedBusiness(null);
                                     else setSelectedBusiness(updated);
                                 }} 
@@ -563,6 +639,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports }) => 
                         )}
                     </div>
                 </div>
+            )}
+
+            {activeTab === 'field_test' && (
+                <FieldAuditSimulator 
+                    businesses={businesses} 
+                    onAuditComplete={async () => {
+                        // Refresh ledger after sim
+                        const ledgerRes = await api.get<{ data: any[] }>('/ledger');
+                        setFullLedger(ledgerRes.data);
+                    }}
+                />
+            )}
+
+            {isLedgerOpen && (
+                <BlockchainLedger 
+                    blocks={fullLedger} 
+                    onClose={() => setIsLedgerOpen(false)}
+                    targetId={ledgerAssetId}
+                />
             )}
         </div>
     );

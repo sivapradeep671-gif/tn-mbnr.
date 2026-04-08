@@ -76,9 +76,9 @@ export const AdminAnalytics: React.FC<AnalyticsProps> = ({ stats }) => {
 
                 <div className="space-y-8">
                     {[
-                        { label: 'Validated', count: stats.verified, color: 'bg-green-500', percent: (stats.verified / stats.total) * 100 },
-                        { label: 'Audit Required', count: stats.pending, color: 'bg-yellow-500', percent: (stats.pending / stats.total) * 100 },
-                        { label: 'Revoked', count: stats.rejected, color: 'bg-red-500', percent: (stats.rejected / stats.total) * 100 }
+                        { label: 'Validated', count: stats.verified, color: 'bg-green-500', percent: (stats.verified / (stats.total || 1)) * 100 },
+                        { label: 'Audit Required', count: stats.pending, color: 'bg-yellow-500', percent: (stats.pending / (stats.total || 1)) * 100 },
+                        { label: 'Revoked', count: stats.rejected, color: 'bg-red-500', percent: (stats.rejected / (stats.total || 1)) * 100 }
                     ].map((item: {label: string, count: number, color: string, percent: number}, i: number) => (
                         <div key={i}>
                             <div className="flex justify-between items-end mb-3">

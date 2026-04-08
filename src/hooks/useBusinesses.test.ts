@@ -54,6 +54,11 @@ describe('useBusinesses Hook', () => {
 
         const { result } = renderHook(() => useBusinesses());
 
+        // Wait for initial fetch to finish so we don't have race conditions
+        await waitFor(() => {
+            expect(result.current.isLoading).toBe(false);
+        });
+
         let registered: any;
         await act(async () => {
             registered = await result.current.registerBusiness(newBiz);

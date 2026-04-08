@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, AlertTriangle, FileText, User, Shield, Send, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, FileText, User, Shield, Send, RefreshCw } from 'lucide-react';
 import { api } from '../api/client';
 import type { Business, RegistryApproval, WorkflowStage, WorkflowStatus } from '../types/types';
-import { useAuth } from '../context/AuthContext';
 import { showToast } from '../hooks/useToast';
 
 interface ApprovalWorkflowProps {
     business: Business;
-    onUpdate?: () => void;
+    onUpdate?: (status: WorkflowStatus) => void;
     isAdmin?: boolean;
 }
 
 export const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ business, onUpdate, isAdmin }) => {
-    const { user } = useAuth();
     const [history, setHistory] = useState<RegistryApproval[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -30,8 +28,8 @@ export const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ business, on
         try {
             const res = await api.get<{ data: RegistryApproval[] }>(`/approvals/${business.id}`);
             setHistory(res.data);
-        } catch (e) {
-            console.error("Failed to fetch approval history:", e);
+        } catch (err) {
+            console.error("Failed to fetch approval history:", err);
         } finally {
             setLoading(false);
         }
@@ -56,8 +54,8 @@ export const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ business, on
             setComments('');
             setOrderRef('');
             fetchHistory();
-            if (onUpdate) onUpdate();
-        } catch (e) {
+            if (onUpdate) onUpdate(status);
+        } catch (err) {
             showToast('Failed to update approval status', 'error');
         } finally {
             setSubmitting(false);

@@ -87,9 +87,8 @@ class GeminiService {
         }
 
         try {
-            const chatModel = this.genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-            const chat = chatModel.startChat({
-                history: history,
+            const chatModel = this.genAI.getGenerativeModel({ 
+                model: "gemini-2.0-flash",
                 systemInstruction: `
                     You are the TrustReg TN Assistant (MBNR Platform).
                     Your purpose is to help citizens and merchants in Tamil Nadu, India.
@@ -104,6 +103,10 @@ class GeminiService {
                     6. Never provide legal advice, but summarize platform rules.
                     7. Keep responses concise and formatted with markdown.
                 `,
+            });
+
+            const chat = chatModel.startChat({
+                history: history,
             });
 
             const result = await chat.sendMessage(message);

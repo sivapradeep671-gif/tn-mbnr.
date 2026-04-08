@@ -11,7 +11,6 @@ import { ToastContainer } from './components/Toast';
 import { api } from './api/client';
 import { Mail, Shield, Zap, AlertTriangle } from 'lucide-react';
 import { useLanguage } from './context/LanguageContext';
-import { config } from './config';
 
 // Lazy load feature components for better performance
 const BusinessRegistration = lazy(() => import('./components/BusinessRegistration').then(m => ({ default: m.BusinessRegistration })));

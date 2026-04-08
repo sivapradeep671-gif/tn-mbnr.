@@ -1,9 +1,9 @@
 {
-  "name": "trustreg-tn",
+  "name": "tn-mbnr",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://sivapradeep671-gif.github.io/TN-MBNR/",
+  "homepage": "https://sivapradeep671-gif.github.io/tn-mbnr./",
   "scripts": {
     "dev": "vite",
     "start": "node server/index.cjs",
