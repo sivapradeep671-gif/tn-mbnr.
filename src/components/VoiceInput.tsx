@@ -1,22 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Mic, MicOff } from 'lucide-react';
 import { showToast } from '../hooks/useToast';
+import { useLanguage } from '../context/LanguageContext';
 
 interface VoiceInputProps {
     onResult: (text: string) => void;
     placeholder?: string;
 }
 
-export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder = "Listening..." }) => {
+export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder }) => {
+    const { language } = useLanguage();
     const [isListening, setIsListening] = useState(false);
     const [isSupported] = useState(() => {
         return typeof window !== 'undefined' && 
                (('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window));
     });
-
-    useEffect(() => {
-        // Voice input initialization if needed
-    }, []);
 
     const startListening = () => {
         if (!isSupported) {
@@ -27,7 +25,8 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder = 
         const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
         const recognition = new SpeechRecognition();
 
-        recognition.lang = 'en-US';
+        // Dynamically set language based on app context
+        recognition.lang = language === 'ta' ? 'ta-IN' : 'en-US';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
@@ -39,13 +38,13 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder = 
             const transcript = event.results[0][0].transcript;
             onResult(transcript);
             setIsListening(false);
-            showToast("Speech captured", "success");
+            showToast(language === 'ta' ? "உரை சேகரிக்கப்பட்டது" : "Speech captured", "success");
         };
 
         recognition.onerror = (event: any) => {
             console.error("Speech recognition error", event.error);
             setIsListening(false);
-            showToast(`Speech error: ${event.error}`, "error");
+            showToast(`${language === 'ta' ? 'பேச்சுப் பிழை' : 'Speech error'}: ${event.error}`, "error");
         };
 
         recognition.onend = () => {
@@ -57,11 +56,15 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onResult, placeholder = 
 
     if (!isSupported) return null;
 
+    const tooltip = placeholder || (isListening 
+        ? (language === 'ta' ? "கவனிக்கிறது..." : "Listening...") 
+        : (language === 'ta' ? "குரல் மூலம் தேடு" : "Search by voice"));
+
     return (
         <button
             onClick={startListening}
-            className={`p-2 rounded-full transition-colors ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-            title={placeholder}
+            className={`p-2 rounded-xl transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10'}`}
+            title={tooltip}
         >
             {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
         </button>

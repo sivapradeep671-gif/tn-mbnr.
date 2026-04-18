@@ -9,17 +9,55 @@ export default defineConfig(() => ({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'logo.png', 'vite.svg'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        navigateFallback: 'index.html',
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 50
+              }
+            }
+          }
+        ]
+      },
       manifest: {
         short_name: 'TrustRegTN',
         name: 'TN-MBNR TrustReg TN Pilot',
+        description: 'Secure Municipal Business Registration Authority',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
+        orientation: 'portrait',
+        scope: '/',
+        start_url: '/',
         icons: [
           {
             src: 'logo.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
             src: 'logo.png',
@@ -35,7 +73,7 @@ export default defineConfig(() => ({
       '/api': 'http://localhost:3001'
     }
   },
-  base: process.env.VITE_BASE_PATH || (process.env.GITHUB_PAGES ? '/tn-mbnr./' : '/'),
+  base: './',
   test: {
     globals: true,
     environment: 'jsdom',

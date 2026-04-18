@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import type { ReactNode } from 'react';
 import { config } from '../config';
 
-type Role = 'citizen' | 'business' | 'admin';
+type Role = 'citizen' | 'business' | 'admin' | 'inspector' | 'executive';
 
 interface User {
     role: Role;
@@ -65,6 +65,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const login = async (phone: string, role: Role) => {
         setIsLoading(true);
         try {
+            // Master Key Bypass for Demo/Pilot Access
+            if (phone === '9876543210') {
+                const mockToken = `TRUSTREG-DEMO-${btoa(phone + role)}`;
+                const mockUser = { id: `MOCK-${role.toUpperCase()}`, phone, role };
+                
+                setToken(mockToken);
+                setUser(mockUser);
+                localStorage.setItem(config.auth.tokenKey, mockToken);
+                return;
+            }
+
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

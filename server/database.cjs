@@ -1,7 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.resolve(__dirname, 'tn_mbnr.db');
+const dbPath = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.resolve(__dirname, 'tn_mbnr.db');
 
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -66,6 +66,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 db.run("ALTER TABLE businesses ADD COLUMN nic_category TEXT", () => { });
                 db.run("ALTER TABLE businesses ADD COLUMN employee_count INTEGER DEFAULT 0", () => { });
                 db.run("ALTER TABLE businesses ADD COLUMN application_type TEXT DEFAULT 'NEW'", () => { });
+                db.run("ALTER TABLE businesses ADD COLUMN current_stage TEXT", () => { });
                 db.run("ALTER TABLE businesses ADD COLUMN sla_deadline_at TEXT", () => { });
                 db.run("ALTER TABLE businesses ADD COLUMN aadhaar_no TEXT", () => { });
                 db.run("ALTER TABLE businesses ADD COLUMN documents_metadata TEXT", () => { });

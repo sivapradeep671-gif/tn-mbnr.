@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Shield, Save, AlertTriangle, CheckCircle, Loader, Building2, Upload, Check, X, ShieldCheck, Activity, Database, Zap } from 'lucide-react';
+import { Shield, Save, AlertTriangle, CheckCircle, Loader, Building2, Upload, Check, X, ShieldCheck, Activity, Database, Zap, Search } from 'lucide-react';
 import type { Business, AnalysisResult } from '../types/types';
 import { useLanguage } from '../context/LanguageContext';
 import { aiService } from '../services/geminiService';
+import { govApiService } from '../services/govApiService';
 import { showToast } from '../hooks/useToast';
 import { api } from '../api/client';
 
@@ -178,12 +179,52 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
     const [registeredBusiness, setRegisteredBusiness] = useState<Business | null>(null);
     const [gpsError, setGpsError] = useState<string | null>(null);
 
+    const handleGstSync = async () => {
+        if (!formData.gstNumber || errors.gstNumber) {
+            showToast('Please enter a valid GST number first', 'error');
+            return;
+        }
+
+        setIsAnalyzing(true);
+        try {
+            const result = await govApiService.fetchGstDetails(formData.gstNumber);
+            if (result) {
+                setFormData(prev => ({
+                    ...prev,
+                    legalName: result.legalName,
+                    tradeName: result.tradeName,
+                    address: result.address,
+                    nic_category: result.nic_category
+                }));
+                setTouched(prev => ({
+                    ...prev,
+                    legalName: true,
+                    tradeName: true,
+                    address: true,
+                    nic_category: true
+                }));
+                showToast('Entity data synchronized from GST portal', 'success');
+            }
+        } catch (e) {
+             showToast('GST synchronization node interrupted', 'error');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
     useEffect(() => {
         const savedDraft = localStorage.getItem('tn_mbnr_registration_draft');
         if (savedDraft) {
             setDraftFound(true);
         }
     }, []);
+
+    // Incremental Persistence Logic
+    useEffect(() => {
+        if (Object.keys(formData).length > 0 && !registeredBusiness) {
+            localStorage.setItem('tn_mbnr_registration_draft', JSON.stringify(formData));
+        }
+    }, [formData, registeredBusiness]);
 
     // Validation Effect
     useEffect(() => {
@@ -580,16 +621,25 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                                 onBlur={handleBlur}
                                 placeholder="XXXX-XXXX-XXXX"
                             />
-                            <InputField
-                                label={t.register.labels.gst}
-                                name="gstNumber"
-                                value={formData.gstNumber || ''}
-                                onChange={handleInputChange}
-                                onBlur={handleBlur}
-                                error={errors.gstNumber}
-                                touched={touched.gstNumber}
-                                placeholder={t.register.placeholders.gst}
-                            />
+                            <div className="relative group/gst">
+                                <InputField
+                                    label={t.register.labels.gst}
+                                    name="gstNumber"
+                                    value={formData.gstNumber || ''}
+                                    onChange={handleInputChange}
+                                    onBlur={handleBlur}
+                                    error={errors.gstNumber}
+                                    touched={touched.gstNumber}
+                                    placeholder={t.register.placeholders.gst}
+                                />
+                                <button
+                                    onClick={handleGstSync}
+                                    className="absolute right-12 top-[34px] p-2 bg-yellow-500 rounded-lg text-slate-950 hover:bg-white transition-all shadow-lg active:scale-95 group-hover/gst:translate-x-0 z-10"
+                                    title="Fetch from GST Registry"
+                                >
+                                    <Search className="h-4 w-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
 

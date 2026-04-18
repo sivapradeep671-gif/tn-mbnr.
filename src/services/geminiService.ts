@@ -61,23 +61,47 @@ class GeminiService {
     /**
      * AI-powered fraud report analysis for severity classification
      */
-    public async analyzeFraudReport(report: Partial<CitizenReport>): Promise<{ severity: string; urgency: number; summary: string }> {
+    public async analyzeFraudReport(report: Partial<CitizenReport>): Promise<{ severity: string; urgency: number; summary: string; tamil_summary: string }> {
         if (!this.model) {
-            return { severity: "Medium", urgency: 5, summary: "AI node offline. Standard classification applied." };
+            return { 
+                severity: "Medium", 
+                urgency: 5, 
+                summary: "AI node offline. Standard classification applied.",
+                tamil_summary: "AI முடக்கம். நிலையான வகைப்பாடு பயன்படுத்தப்பட்டது."
+            };
         }
 
         try {
             const prompt = `
-                Analyze this fraud report: "${report.description}". 
-                Rate severity based on financial impact, public safety, and evidence strength.
-                Return JSON schema: { "severity": "Low"|"Medium"|"High"|"Critical", "urgency": number(1-10), "summary": string }
+                Role: Senior Municipal Auditor for Tamil Nadu (TN-MBNR).
+                Task: Analyze this citizen fraud report: "${report.description}".
+                
+                Risk Matrix:
+                - CRITICAL: Public health hazard, illegal signage in government zones, or large-scale tax evasion.
+                - HIGH: Expired licenses with active trading, trademark infringement of local heritage brands.
+                - MEDIUM: Location mismatch (>200m), minor documentation discrepancies.
+                - LOW: General inquiries or non-critical formatting issues.
+
+                Context: ${report.category || 'General Business Compliance'}.
+
+                Return JSON schema EXACTLY: { 
+                  "severity": "Low"|"Medium"|"High"|"Critical", 
+                  "urgency": number(1-10), 
+                  "summary": "Concise professional summary in English",
+                  "tamil_summary": "Concise professional summary in Tamil (தமிழ்)"
+                }
             `;
 
             const result = await this.model.generateContent(prompt);
             const response = await result.response;
             return JSON.parse(response.text());
         } catch {
-            return { severity: "High", urgency: 7, summary: "Automated risk flag raised due to processing error." };
+            return { 
+                severity: "High", 
+                urgency: 7, 
+                summary: "Automated risk flag raised due to processing error.",
+                tamil_summary: "தொழில்நுட்பக் கோளாறு காரணமாக தானியங்கி எச்சரிக்கை எழுப்பப்பட்டது."
+            };
         }
     }
 

@@ -28,7 +28,7 @@ class Blockchain {
     }
 
     createGenesisBlock() {
-        return new Block(Date.parse("2024-01-01"), "Genesis Block", "0");
+        return new Block(new Date("2024-01-01T00:00:00.000Z").toISOString(), "Genesis Block", "0");
     }
 
     getLatestBlock() {
@@ -39,6 +39,7 @@ class Blockchain {
         newBlock.previousHash = this.getLatestBlock().hash;
         newBlock.mineBlock(this.difficulty);
         this.chain.push(newBlock);
+        return newBlock;
     }
 
     isChainValid() {

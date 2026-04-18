@@ -32,7 +32,35 @@ If a private secret (JWT/QR) is compromised:
 2.  **Node Restart**: Restart the service to force all active tokens to expire immediately.
 3.  **Ledger Integrity**: Verify the blockchain chain hasn't been tampered with (`isChainValid()`).
 
-## 🛠️ 4. Administration
--   **Add Officer**: Update the Auth middleware and add the phone/role to the verified pool.
+## 🔵 5. Advanced Intelligence & Governance (Phase 3)
+Strategic protocols for the High-Integrity municipal workflow.
+
+### A. AI Forensic Scrutiny (Gemini)
+When a business is in the `UNDER_REVIEW` stage:
+1.  **Invoke Intelligence**: Click "Run Scrutiny" in the Inspector Dashboard.
+2.  **Audit Brands**: The AI will perform cross-brand analysis for counterfeit naming risks.
+3.  **Risk Score**: If the `Integrity Score > 75%`, mandatory manual field audit is required before approval.
+
+### B. Blockchain Ledger Commitment
+Final approval is an immutable legal act:
+1.  **Cryptographic Signing**: Inspectors must perform a "Commit-to-Chain" signing.
+2.  **TX_ID Verification**: Every approved node receives a unique `TX_ID` hash.
+3.  **Sovereign Audit**: Once committed, the trust certificate is tamper-proof and cryptographically verifiable by citizens in real-time.
+
+### C. Offline Field Operations
+For officers in low-bandwidth zones (Wards-08, 12):
+1.  **Transparent Queuing**: The PWA automatically detects offline state and switches to "Local Node Mode".
+2.  **Sync-Queue Management**: All inspectors approvals and citizen reports are queued locally.
+3.  **Automatic Reconciliation**: Connectivity restoration triggers an automatic background sync. Verify the "Network Stable" badge in the dashboard.
+
+## 🏢 6. Strategic Executive Oversight
+Strategic resource allocation for Nodal Officers.
+
+1.  **Revenue Yield Map**: Use the "Strategic Command" hub to identify wards with high tax-pendency.
+2.  **Compliance Heatmaps**: Target "High-Risk Nodes" for unplanned audits to maintain district-wide trust.
+3.  **SLA Acceleration**: Monitor current processing velocity and re-assign inspectors to bottleneck sectors.
+
+## 🛠️ 7. Administration
+-   **Add Officer**: Update the Auth middleware and add the phone/role (inspector/executive) to the verified pool.
 -   **Update SLAs**: Use direct SQL to update the `settings` table for new legislative processing days.
     *   `UPDATE settings SET value = '30' WHERE key = 'SLA_DAYS_NEW';`

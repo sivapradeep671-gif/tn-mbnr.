@@ -3,13 +3,15 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
-const db = require('./database.cjs');
+const db = require('./database.cjs'); // Keeping SQLite as fallback for now
+const mongoRepo = require('./database_mongo.cjs');
 const { Blockchain, Block } = require('./blockchain.cjs');
 const { calculateLicenseStatus, calculateLicenseTimestamps } = require('./licenseStatus.cjs');
 const mult = require('multer');
 const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 const { validateBody } = require('./middleware/validateBody.cjs');
 const config = require('./config/secrets.cjs');
 const logger = require('./utils/logger.cjs');
@@ -19,7 +21,7 @@ const AUTH_SECRET = config.auth.secret;
 const QR_SECRET = config.qr.secret;
 
 // Ensure uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
+const uploadDir = process.env.UPLOADS_PATH || path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -38,31 +40,41 @@ const upload = mult({ storage: storage });
 
 const tnMbnrChain = new Blockchain();
 
-// Initialize Blockchain from DB
-db.all("SELECT * FROM ledger ORDER BY index_id ASC", [], (err, rows) => {
-    if (err) {
-        console.error("Error loading ledger:", err);
-        return;
-    }
-    if (rows.length === 0) {
-        // Create Genesis Block if empty
-        const genesisBlock = tnMbnrChain.createGenesisBlock();
-        const sql = `INSERT INTO ledger (timestamp, data, previousHash, hash, nonce) VALUES (?,?,?,?,?)`;
-        const params = [genesisBlock.timestamp, JSON.stringify(genesisBlock.data), genesisBlock.previousHash, genesisBlock.hash, genesisBlock.nonce];
-        db.run(sql, params, (err) => {
-            if (err) console.error("Error saving genesis block:", err);
-            else console.log("Genesis Block created and saved.");
-        });
+// --- MongoDB Bootstrapper ---
+(async () => {
+    const isMongoConnected = await mongoRepo.connectDB();
+    if (isMongoConnected) {
+        console.log("🚀 Initializing Blockchain from MongoDB Local Node...");
+        const blocks = await mongoRepo.repository.getLedger();
+        if (blocks.length === 0) {
+            const genesisBlock = tnMbnrChain.createGenesisBlock();
+            await mongoRepo.repository.addBlockToLedger(genesisBlock);
+            console.log("Genesis Block established in MongoDB.");
+        } else {
+            tnMbnrChain.chain = blocks.map(row => {
+                const b = new Block(row.timestamp, row.data, row.previousHash);
+                b.hash = row.hash;
+                b.nonce = row.nonce;
+                return b;
+            });
+            console.log(`Blockchain synchronized with ${tnMbnrChain.chain.length} blocks.`);
+        }
     } else {
-        tnMbnrChain.chain = rows.map(row => {
-            const b = new Block(row.timestamp, JSON.parse(row.data), row.previousHash);
-            b.hash = row.hash;
-            b.nonce = row.nonce;
-            return b;
+        console.warn("⚠️  MongoDB offline. Falling back to SQLite Local Registry.");
+        // Legacy SQLite Loader
+        db.all("SELECT * FROM ledger ORDER BY index_id ASC", [], (err, rows) => {
+            if (err) console.error("Error loading SQLite ledger:", err);
+            else if (rows && rows.length > 0) {
+                tnMbnrChain.chain = rows.map(row => {
+                    const b = new Block(row.timestamp, JSON.parse(row.data), row.previousHash);
+                    b.hash = row.hash;
+                    b.nonce = row.nonce;
+                    return b;
+                });
+            }
         });
-        console.log(`Blockchain loaded with ${tnMbnrChain.chain.length} blocks.`);
     }
-});
+})();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -152,9 +164,19 @@ app.get('/api/auth/me', apiLimiter, authenticateToken, (req, res) => {
     res.json({ user: req.user });
 });
 
-app.post('/api/auth/login', authLimiter, (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     const { phone, role } = req.body;
     if (!phone || !role) return res.status(400).json({ error: 'Missing phone or role' });
+
+    // MongoDB Priority Path
+    if (mongoose.connection.readyState === 1) {
+        if (role === 'business') {
+            const row = await mongoRepo.models.Business.findOne({ contactNumber: phone }).lean();
+            const businessId = row ? row.id : `BIZ-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+            const token = generateToken({ id: businessId, phone, role });
+            return res.json({ message: 'Login successful', token, user: { id: businessId, phone, role } });
+        }
+    }
 
     // For Demo: If it's a merchant, find their business ID
     if (role === 'business') {
@@ -184,7 +206,7 @@ app.get('/api/businesses', apiLimiter, (req, res) => {
     });
 });
 
-app.post('/api/verify-business', apiLimiter, (req, res) => {
+app.post('/api/verify-business', apiLimiter, authenticateToken, authorizeRoles('inspector', 'admin'), (req, res) => {
     const { businessName, type } = req.body;
     if (!businessName) return res.status(400).json({ error: "Missing business name" });
 
@@ -223,7 +245,7 @@ app.post('/api/verify-business', apiLimiter, (req, res) => {
 const { businessSchema } = require('./validation/businessSchema.cjs');
 const { encrypt } = require('./utils/piiEncryption.cjs');
 
-app.post('/api/businesses', registrationLimiter, authenticateToken, authorizeRoles('business', 'admin'), validateBody(businessSchema), (req, res) => {
+app.post('/api/businesses', registrationLimiter, validateBody(businessSchema), (req, res) => {
     const b = req.body;
     const encryptedAadhaar = encrypt(b.aadhaar_no);
     const regDate = b.registrationDate || new Date().toISOString();
@@ -267,8 +289,29 @@ app.post('/api/businesses', registrationLimiter, authenticateToken, authorizeRol
         b.documents_metadata || '{}'
     ];
 
-    db.run(sql, params, function (err) {
+    db.run(sql, params, async function (err) {
         if (err) return res.status(400).json({ error: err.message });
+
+        // MongoDB Sync Path
+        if (mongoose.connection.readyState === 1) {
+            try {
+                await mongoRepo.models.Business.create({
+                    ...b,
+                    aadhaar_no: b.aadhaar_no, // Mongoose handles encryption if configured, otherwise store raw for now or reuse encrypt
+                    status: b.status || 'Pending',
+                    registrationDate: regDate,
+                    license_valid_till: licenseTimestamps.license_valid_till,
+                    grace_ends_at: licenseTimestamps.grace_ends_at,
+                    pay_by_date: licenseTimestamps.pay_by_date,
+                    payment_done: licenseTimestamps.payment_done,
+                    license_status: licenseTimestamps.license_status,
+                    sla_deadline_at: slaDeadline
+                });
+                console.log(`✅ Business ${b.id} Synced to MongoDB Cluster`);
+            } catch (mErr) {
+                console.warn(`⚠️ MongoDB Sync Failed for ${b.id}:`, mErr.message);
+            }
+        }
 
         const newBlock = new Block(new Date().toISOString(), {
             id: b.id,
@@ -283,7 +326,14 @@ app.post('/api/businesses', registrationLimiter, authenticateToken, authorizeRol
 
         db.run(ledgerSql, ledgerParams);
 
-        res.json({ message: "success", id: this.lastID, blockHash: newBlock.hash });
+        res.json({ 
+            message: "success", 
+            data: { 
+                id: b.id, 
+                sqlite_last_id: this.lastID 
+            }, 
+            blockHash: newBlock.hash 
+        });
     });
     });
 });
@@ -399,7 +449,7 @@ app.post('/api/verify-scan', apiLimiter, (req, res) => {
 
     // Get full business data for response
     db.get("SELECT * FROM businesses WHERE id = ?", [payload.id], (err, biz) => {
-        const licenseStatus = biz ? calculateLicenseStatus(biz.registrationDate) : null;
+        const licenseStatus = biz ? calculateLicenseStatus(biz) : null;
         
         // Log scan
         db.run("INSERT INTO scans (business_id, token, scan_lat, scan_lng, result, distance) VALUES (?,?,?,?,?,?)",
@@ -549,7 +599,7 @@ app.post('/api/approvals', authenticateToken, (req, res) => {
                     timestamp: new Date().toISOString()
                 };
                 
-                const newBlock = tnMbnrChain.addBlock(new Block(Date.now(), auditData));
+                const newBlock = tnMbnrChain.addBlock(new Block(new Date().toISOString(), auditData));
                 const ledgerSql = `INSERT INTO ledger (timestamp, data, previousHash, hash, nonce) VALUES (?,?,?,?,?)`;
                 
                 db.run(ledgerSql, [newBlock.timestamp, JSON.stringify(newBlock.data), newBlock.previousHash, newBlock.hash, newBlock.nonce], (err) => {

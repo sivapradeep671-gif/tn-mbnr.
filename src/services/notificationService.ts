@@ -1,29 +1,37 @@
 import { showToast } from '../hooks/useToast';
+import { twilioService, emailService } from './commNodes';
 
 interface NotificationPayload {
     to: string;
     type: 'SMS' | 'EMAIL';
     message: string;
+    subject?: string;
     template?: string;
 }
 
 /**
- * Mock Notification Service for TrustReg TN
- * In a production environment, this would integrate with Twilio or SendGrid.
- * Currently simulates API latency and success/failure states.
+ * TrustReg TN Notification Authority
+ * Integrates with Twilio (SMS) and SendGrid (Email) nodes.
  */
 export const notificationService = {
     send: async (payload: NotificationPayload): Promise<boolean> => {
-        console.log(`[Notification Service] Sending ${payload.type} to ${payload.to}: ${payload.message}`);
+        console.log(`[Notification Authority] Dispatching ${payload.type} to recipient...`);
         
-        // Simulating network latency
-        await new Promise(resolve => setTimeout(resolve, 800));
+        let success = false;
+        if (payload.type === 'SMS') {
+            success = await twilioService.sendSms(payload.to, payload.message);
+        } else {
+            success = await emailService.sendEmail(payload.to, payload.subject || 'TrustReg TN Security Update', payload.message);
+        }
 
-        // In demo mode, we always succeed but show a toast for visual feedback
-        const icon = payload.type === 'SMS' ? '📱' : '📧';
-        showToast(`${icon} ${payload.type} sent to ${(payload.to || '').slice(0, 3)}***`, 'success');
+        if (success) {
+            const icon = payload.type === 'SMS' ? '📱' : '📧';
+            showToast(`${icon} ${payload.type} dispatched to ${(payload.to || '').slice(0, 3)}***`, 'success');
+        } else {
+            showToast(`Failed to dispatch ${payload.type} alert`, 'error');
+        }
         
-        return true;
+        return success;
     },
 
     /**
@@ -42,10 +50,17 @@ export const notificationService = {
      * Sends a monthly integrity report to the merchant
      */
     sendMonthlyReport: async (email: string, shopName: string, stats: { verified: number, failed: number }) => {
-        const message = `Hello from TrustReg TN. Monthly Integrity Report for ${shopName}: ${stats.verified} Verified Scans, ${stats.failed} Security Flags.`;
+        const message = `
+            <h2>TrustReg TN: Monthly Integrity Report</h2>
+            <p><strong>Business:</strong> ${shopName}</p>
+            <p><strong>Verified Scans:</strong> ${stats.verified}</p>
+            <p><strong>Security Flags:</strong> ${stats.failed}</p>
+            <p>Your business maintains an official integrity status of "EXCELLENT".</p>
+        `;
         return notificationService.send({
             to: email,
             type: 'EMAIL',
+            subject: `Monthly Report: ${shopName}`,
             message
         });
     }

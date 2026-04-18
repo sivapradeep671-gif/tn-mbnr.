@@ -91,3 +91,7 @@ export interface CitizenReport {
     latitude?: number;
     longitude?: number;
 }
+export interface GlobalHandlers {
+    onReportBusiness?: (name: string) => void;
+    onOpenCitizenReg?: () => void;
+}

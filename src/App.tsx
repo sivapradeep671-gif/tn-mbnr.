@@ -11,6 +11,12 @@ import { ToastContainer } from './components/Toast';
 import { api } from './api/client';
 import { Mail, Shield, Zap, AlertTriangle } from 'lucide-react';
 import { useLanguage } from './context/LanguageContext';
+import type { GlobalHandlers } from './types/types';
+
+// Tell TypeScript about our custom window properties
+declare global {
+  interface Window extends GlobalHandlers {}
+}
 
 // Lazy load feature components for better performance
 const BusinessRegistration = lazy(() => import('./components/BusinessRegistration').then(m => ({ default: m.BusinessRegistration })));
@@ -25,16 +31,26 @@ const TechArchitecture = lazy(() => import('./components/TechArchitecture').then
 const HackathonJury = lazy(() => import('./components/HackathonJury').then(m => ({ default: m.HackathonJury })));
 const DemoControls = lazy(() => import('./components/DemoControls').then(m => ({ default: m.DemoControls })));
 const MerchantDashboard = lazy(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })));
+const InspectorDashboard = lazy(() => import('./components/InspectorDashboard').then(m => ({ default: m.InspectorDashboard })));
+const ExecutiveDashboard = lazy(() => import('./components/ExecutiveDashboard').then(m => ({ default: m.ExecutiveDashboard })));
 const AIAssistant = lazy(() => import('./components/extensions/AIAssistant').then(m => ({ default: m.AIAssistant })));
 
 const APP_VERSION = '1.1.0 (Senior Build)';
 
 function LoadingFallback() {
   return (
-    <div className="min-h-[400px] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div className="h-10 w-10 border-4 border-yellow-500/10 border-t-yellow-500 rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-mono text-xs uppercase tracking-tighter">Loading Component...</p>
+    <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-6">
+        <div className="relative">
+          <div className="h-16 w-16 border-4 border-yellow-500/10 border-t-yellow-500 rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Zap className="h-6 w-6 text-yellow-500 animate-pulse" />
+          </div>
+        </div>
+        <div className="text-center">
+          <p className="text-yellow-500 font-black text-[10px] uppercase tracking-[0.4em] mb-2">Synchronizing Node</p>
+          <p className="text-slate-500 text-[9px] font-medium uppercase tracking-widest animate-pulse">Initializing Component Sandbox...</p>
+        </div>
       </div>
     </div>
   );
@@ -86,7 +102,9 @@ function AppContent() {
 
     Object.assign(window, handlers);
     return () => {
-      Object.keys(handlers).forEach(key => delete (window as any)[key]);
+      Object.keys(handlers).forEach(key => {
+        delete (window as any)[key];
+      });
     };
   }, []);
 
@@ -134,7 +152,17 @@ function AppContent() {
                 const business = businesses.find(b => b.id === user.id) || businesses[0];
                 return <MerchantDashboard business={business} />;
               }
+              if (user?.role === 'inspector') {
+                return <InspectorDashboard businesses={businesses} onUpdateStatus={updateStatus} />;
+              }
+              if (user?.role === 'executive') {
+                return <ExecutiveDashboard />;
+              }
               return <Dashboard businesses={businesses} reports={reports} onUpdateStatus={updateStatus} />;
+            case 'INSPECTOR_DASHBOARD':
+                return <InspectorDashboard businesses={businesses} onUpdateStatus={updateStatus} />;
+            case 'EXECUTIVE_DASHBOARD':
+                return <ExecutiveDashboard />;
             default:
               return (
                 <Hero 
@@ -151,18 +179,21 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-yellow-500/30 pt-16">
+    <div className={`min-h-screen bg-slate-950 text-white font-sans selection:bg-yellow-500/30 transition-all duration-500 ${isBackendOffline ? 'pt-24' : 'pt-20'}`}>
       <ToastContainer />
       
-      <div className="fixed top-16 left-0 w-full bg-yellow-500/90 text-slate-900 text-[10px] font-bold py-1 px-4 z-40 text-center tracking-widest uppercase">
-        Enterprise Build – TrustReg TN Platform
-      </div>
-
-      {isBackendOffline && (
-        <div className="fixed top-[4.5rem] left-0 w-full bg-red-600/90 text-white text-[10px] font-bold py-1 px-4 z-40 text-center tracking-widest uppercase flex items-center justify-center gap-2 animate-pulse">
-          <AlertTriangle className="h-3 w-3" /> API Grid Offline — Check VITE_API_URL or run `npm run server`
+      {/* Universal Priority Banner Stack */}
+      <div className="fixed top-0 left-0 w-full z-[60] flex flex-col">
+        <div className="w-full bg-yellow-500/95 text-slate-900 text-[9px] font-black py-1.5 px-4 text-center tracking-[0.3em] uppercase border-b border-yellow-600/20">
+          Enterprise Build – TrustReg TN Platform v{APP_VERSION}
         </div>
-      )}
+
+        {isBackendOffline && (
+          <div className="w-full bg-red-600/90 text-white text-[9px] font-black py-1.5 px-4 text-center tracking-[0.2em] uppercase flex items-center justify-center gap-2 animate-pulse backdrop-blur-md border-b border-red-500/20">
+            <AlertTriangle className="h-3.5 w-3.5" /> Security Advisory: API Grid Offline — Operating on Local Node Fallback
+          </div>
+        )}
+      </div>
 
       <Navbar currentView={currentView} setCurrentView={setCurrentView} />
       

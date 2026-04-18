@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { api } from '../api/client';
 
-import { Camera, MapPin, Send, AlertTriangle, Shield, CheckCircle } from 'lucide-react';
+import { Camera, MapPin, Send, AlertTriangle, Shield, CheckCircle, Activity, Zap } from 'lucide-react';
 import { showToast } from '../hooks/useToast';
 import { notificationService } from '../services/notificationService';
 import { aiService } from '../services/geminiService';
@@ -19,8 +19,18 @@ export const CitizenReport: React.FC<CitizenReportProps> = ({ prefillName = "" }
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
     const [aiAnalysis, setAiAnalysis] = useState<{ severity: string; urgency: number; summary: string } | null>(null);
+    const [liveFeedback, setLiveFeedback] = useState<string>('');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isListening, setIsListening] = useState(false);
+
+    const runLiveAnalysis = async (val: string) => {
+        if (val.length < 20) return;
+        try {
+            const result = await aiService.analyzeFraudReport({ description: val, businessName });
+            setLiveFeedback(result.summary);
+        } catch (e) { /* silent fail for live */ }
+    };
 
     const categories = ['Safety', 'Hygiene', 'Fraud', 'Harassment', 'Price Gouging', 'Other'];
     const severities = ['Low', 'Medium', 'High', 'Critical'];
@@ -168,15 +178,38 @@ export const CitizenReport: React.FC<CitizenReportProps> = ({ prefillName = "" }
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Statement of Facts</label>
-                            <textarea 
-                                required
-                                rows={4}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-4 px-5 text-white focus:outline-none focus:border-red-500/50 transition-all placeholder:text-slate-700 resize-none" 
-                                placeholder="Describe the violation in detail..."
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                            />
+                            <div className="flex justify-between items-center">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Statement of Facts</label>
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsListening(!isListening)}
+                                    className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white/5 text-slate-500 hover:text-white'}`}
+                                >
+                                    <Activity className="h-3 w-3" />
+                                    {isListening ? 'AI Listening...' : 'Speak In Tamil/English'}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <textarea 
+                                    required
+                                    rows={4}
+                                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-4 px-5 text-white focus:outline-none focus:border-red-500/50 transition-all placeholder:text-slate-700 resize-none" 
+                                    placeholder="Describe the violation in detail..."
+                                    value={description}
+                                    onChange={(e) => {
+                                        setDescription(e.target.value);
+                                        runLiveAnalysis(e.target.value);
+                                    }}
+                                />
+                                {liveFeedback && (
+                                    <div className="absolute bottom-4 right-4 max-w-[200px] p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg animate-reveal-up pointer-events-none">
+                                        <p className="text-[8px] font-black text-blue-500 uppercase mb-1 flex items-center gap-1">
+                                            <Zap className="h-2 w-2" /> Live AI Insight
+                                        </p>
+                                        <p className="text-[10px] text-slate-300 line-clamp-2 italic leading-tight">"{liveFeedback}"</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div 

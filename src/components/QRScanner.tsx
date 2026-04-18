@@ -348,7 +348,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                             </button>
 
                             <button
-                                onClick={() => (window as any).onReportBusiness?.(scanResult.business?.name || '')}
+                                onClick={() => window.onReportBusiness?.(scanResult.business?.name || '')}
                                 className="w-full sm:w-auto px-6 py-3 min-h-[48px] bg-red-900/30 hover:bg-red-900/50 text-red-500 rounded-lg font-bold border border-red-500/30 transition-all active:scale-95"
                             >
                                 {t.scanner.actions.report}

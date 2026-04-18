@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, User, Building2, KeyRound, Loader, AlertCircle } from 'lucide-react';
+import { Shield, User, Building2, KeyRound, Loader, AlertCircle, Search, Landmark } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface LoginProps {
@@ -8,7 +8,7 @@ interface LoginProps {
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const { login } = useAuth();
-    const [role, setRole] = useState<'citizen' | 'business' | 'admin'>('citizen');
+    const [role, setRole] = useState<'citizen' | 'business' | 'admin' | 'inspector' | 'executive'>('citizen');
     const [phone, setPhone] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -42,8 +42,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <p className="text-slate-400 text-sm">Access your TrustReg TN Dashboard</p>
                 </div>
 
-                <div className="flex gap-2 mb-8 bg-slate-950 p-1 rounded-lg">
-                    {(['citizen', 'business', 'admin'] as const).map((r) => (
+                <div className="flex gap-2 mb-8 bg-slate-950 p-1 rounded-lg flex-wrap">
+                    {(['citizen', 'business', 'inspector', 'admin', 'executive'] as const).map((r) => (
                         <button
                             key={r}
                             type="button"
@@ -51,13 +51,13 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                 setRole(r);
                                 setError(null);
                             }}
-                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all capitalize flex items-center justify-center gap-2 ${role === r
+                            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all capitalize flex items-center justify-center gap-2 min-w-[100px] ${role === r
                                 ? 'bg-slate-800 text-white shadow-lg'
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'
                                 }`}
                         >
-                            {r === 'citizen' ? <User className="h-4 w-4" /> : r === 'business' ? <Building2 className="h-4 w-4" /> : <KeyRound className="h-4 w-4" />}
-                            <span className="hidden sm:inline">{r}</span>
+                            {r === 'citizen' ? <User className="h-4 w-4" /> : r === 'business' ? <Building2 className="h-4 w-4" /> : r === 'inspector' ? <Search className="h-4 w-4" /> : r === 'admin' ? <KeyRound className="h-4 w-4" /> : <Landmark className="h-4 w-4" />}
+                            <span>{r}</span>
                         </button>
                     ))}
                 </div>
@@ -72,7 +72,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
                         <label className="block text-sm font-medium text-slate-400 mb-2">
-                            {role === 'business' ? 'Registered Mobile / GST' : role === 'admin' ? 'Admin ID' : 'Mobile Number'}
+                            {role === 'business' ? 'Registered Mobile / GST' : (role === 'admin' || role === 'inspector') ? 'Official ID' : 'Mobile Number'}
                         </label>
                         <input
                             type="text"
@@ -82,6 +82,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             placeholder={role === 'citizen' ? 'Enter 10-digit number' : 'Enter ID'}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all"
                         />
+                        <p className="mt-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+                            Pilot Access Key: <span className="text-yellow-500/80">9876543210</span>
+                        </p>
                     </div>
 
                     <button
@@ -103,4 +106,4 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
         </div>
     );
-};
+};

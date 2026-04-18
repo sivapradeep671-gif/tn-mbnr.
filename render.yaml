@@ -9,10 +9,22 @@ services:
         value: 20
       - key: PORT
         value: 10000
+      - key: NODE_ENV
+        value: production
       - key: AUTH_SECRET
         generateValue: true
       - key: QR_SECRET_KEY
         value: "MBNR_SECURE_TOKEN_2026_GRID"
-      - key: NODE_ENV
-        value: production
+      - key: DB_PATH
+        value: "/data/tn_mbnr.db"
+      - key: UPLOADS_PATH
+        value: "/data/uploads"
+      - key: MONGODB_URI
+        sync: false
+      - key: VITE_GEMINI_API_KEY
+        sync: false
     healthCheckPath: /api/health
+    disk:
+      name: tn-mbnr-storage
+      mountPath: /data
+      sizeGB: 1

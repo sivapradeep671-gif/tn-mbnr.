@@ -27,3 +27,11 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Databases
+*.db
+*.sqlite
+
+# Uploads
+server/uploads/*
+!server/uploads/.gitkeep

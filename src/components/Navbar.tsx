@@ -26,10 +26,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView }) =
         setIsMobileMenuOpen(false);
     };
 
-    const navItems = ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'REPORT', 'SCAN'].filter(view => {
+    const navItems = ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'REPORT', 'SCAN', 'INSPECTOR_DASHBOARD'].filter(view => {
         if (!user) return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
         if (user.role === 'citizen') return ['HOME', 'MAP', 'REGISTRY', 'REPORT', 'SCAN'].includes(view);
         if (user.role === 'business') return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
+        if (user.role === 'inspector') return ['HOME', 'INSPECTOR_DASHBOARD', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
+        if (user.role === 'admin') return ['HOME', 'DASHBOARD', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
+        if (user.role === 'executive') return ['HOME', 'EXECUTIVE_DASHBOARD', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
         return true;
     });
 
@@ -40,6 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView }) =
         REPORT: t.nav.report,
         SCAN: t.nav.scan_qr,
         REGISTRY: 'Registry',
+        INSPECTOR_DASHBOARD: 'Inspection Hub',
+        EXECUTIVE_DASHBOARD: 'Strategic Command',
     };
 
     return (

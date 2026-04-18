@@ -7,7 +7,8 @@ export const translations = {
             report: "Report",
             login: "Login",
             admin: "Admin",
-            scan_qr: "Scan QR"
+            scan_qr: "Scan QR",
+            inspector: "Inspection Hub"
         },
         hero: {
             badge: "TN-MBNR Trust Network Pilot",
@@ -231,6 +232,81 @@ export const translations = {
             success_title: "Registration Complete",
             success_subtitle: "Your citizen profile is now verified. Access to regional scanning and anomaly reporting is activated.",
             enter: "Enter Command Center"
+        },
+        inspector: {
+            title: "Municipal Scrutiny",
+            subtitle: "Field Officer Command Hub",
+            stats: {
+                awaiting: "Awaiting Action",
+                risk: "High Risk Nodes",
+                inspected: "Inspected Today",
+                live: "Live Audits"
+            },
+            tabs: {
+                scrutiny: "Primary Scrutiny",
+                simulator: "Field Audit Simulator",
+                history: "Registry History"
+            },
+            ai: {
+                invoke: "Invoke Gemini Scrutiny",
+                analyzing: "Quantum Scrutiny Active...",
+                cleared: "Standard Clearance Verified",
+                flagged: "High Awareness Flag"
+            },
+            simulator: {
+                title: "Auditor Control",
+                subtitle: "Field Simulation",
+                target: "Select Target Node",
+                choose: "Choose a Verified Business...",
+                distance: "Simulated Distance",
+                mismatch: "Mismatch",
+                internal: "Internal",
+                initiate: "Initialize Field Audit",
+                pulsing: "Broadcasting Pulse...",
+                passed: "Audit Passed",
+                breach: "Security Breach",
+                score: "Audit Score",
+                risk: "Distance Risk",
+                payload: "Signed Proof Payload",
+                telemetry: [
+                    "Initializing Secure Node...",
+                    "Fetching Registrar Key...",
+                    "Calculating Geofence...",
+                    "Comparing HMAC Signatures...",
+                    "Finalizing Blockchain Entry..."
+                ]
+            }
+        },
+        merchant: {
+            compliance: "Compliance Cluster",
+            tax_property: "Property Tax",
+            tax_water: "Water Charges",
+            tax_professional: "Professional Tax",
+            settle_dues: "Settle Outstanding Dues"
+        },
+        executive: {
+            title: "Strategic Command",
+            subtitle: "Municipal Oversight Hub",
+            kpis: {
+                revenue: "Total Revenue Yield",
+                compliance: "Compliance Index",
+                risk: "High-Risk Nodes",
+                verified: "Verified Businesses"
+            },
+            wards: {
+                title: "Ward Performance",
+                analytics: "Integrity vs Revenue Delta"
+            },
+            alerts: {
+                title: "Strategic Alerts",
+                global_map: "Global Risk Map"
+            }
+        },
+        voice: {
+            placeholder: "Search by voice or command...",
+            listening: "System listening...",
+            captured: "Speech captured",
+            error: "Speech error"
         }
     },
     ta: {
@@ -241,7 +317,8 @@ export const translations = {
             report: "புகார்",
             login: "உள்நுழை",
             admin: "நிர்வாகம்",
-            scan_qr: "QR ஸ்கேன்"
+            scan_qr: "QR ஸ்கேன்",
+            inspector: "ஆய்வு மையம்"
         },
         hero: {
             badge: "TN-MBNR நம்பிக்கை நெட்வொர்க் முன்னோடி",
@@ -465,6 +542,75 @@ export const translations = {
             success_title: "பதிவு முடிந்தது",
             success_subtitle: "உங்கள் குடிமகன் சுயவிவரம் இப்போது சரிபார்க்கப்பட்டது. பிராந்திய ஸ்கேனிங் மற்றும் புகாரளிக்கும் அணுகல் செயல்படுத்தப்பட்டது.",
             enter: "கட்டளை மையத்திற்குள் நுழையுங்கள்"
+        },
+        inspector: {
+            title: "நகராட்சி ஆய்வு",
+            subtitle: "கள அலுவலர் கட்டளை மையம்",
+            stats: {
+                awaiting: "நடவடிக்கைக்காகக் காத்திருக்கிறது",
+                risk: "உயர் அபாய முனையங்கள்",
+                inspected: "இன்று ஆய்வு செய்யப்பட்டது",
+                live: "நேரடி ஆய்வுகள்"
+            },
+            tabs: {
+                scrutiny: "முதன்மை ஆய்வு",
+                simulator: "கள ஆய்வு சிமுலேட்டர்",
+                history: "பதிவு வரலாறு"
+            },
+            ai: {
+                invoke: "ஜெமினி ஆய்வைத் தொடங்கு",
+                analyzing: "AI ஆய்வு செயலில் உள்ளது...",
+                cleared: "சாதாரண அனுமதி சரிபார்க்கப்பட்டது",
+                flagged: "உயர் விழிப்புணர்வு கொடி"
+            },
+            simulator: {
+                title: "ஆய்வாளர் கட்டுப்பாடு",
+                subtitle: "கள ஆய்வு",
+                target: "இலக்கு முனையத்தைத் தேர்ந்தெடுக்கவும்",
+                choose: "சரிபார்க்கப்பட்ட வணிகத்தைத் தேர்ந்தெடுக்கவும்...",
+                distance: "செயற்கை தூரம்",
+                mismatch: "பொருத்தமின்மை",
+                internal: "உட்புறம்",
+                initiate: "கள ஆய்வைத் தொடங்கு",
+                pulsing: "சிக்னல் ஒளிபரப்பப்படுகிறது...",
+                passed: "ஆய்வு முடிந்தது",
+                breach: "பாதுகாப்பு மீறல்",
+                score: "ஆய்வு மதிப்பெண்",
+                risk: "தொலைவு அபாயம்",
+                payload: "கையொப்பமிட்ட ஆதாரம்",
+                telemetry: [
+                    "பாதுகாப்பான முனையத்தைத் தொடங்குகிறது...",
+                    "பதிவு விசையைப் பெறுகிறது...",
+                    "ஜியோஃபென்ஸ் கணக்கிடுகிறது...",
+                    "HMAC கையெழுத்தை ஒப்பிடுகிறது...",
+                    "பிளாக்செயின் பதிவை முடிக்கிறது..."
+                ]
+            }
+        },
+        merchant: {
+            compliance: "இணக்கத் தொகுப்பு",
+            tax_property: "சொத்து வரி",
+            tax_water: "குடிநீர் கட்டணம்",
+            tax_professional: "தொழில் வரி",
+            settle_dues: "நிலுவைத் தொகையைச் செலுத்துங்கள்"
+        },
+        executive: {
+            title: "மூலோபாய கட்டளை",
+            subtitle: "நகராட்சி கண்காணிப்பு மையம்",
+            kpis: {
+                revenue: "மொத்த வருவாய் ஈட்டல்",
+                compliance: "இணக்கக் குறியீடு",
+                risk: "உயர் அபாய முனையங்கள்",
+                verified: "சரிபார்க்கப்பட்ட வணிகங்கள்"
+            },
+            wards: {
+                title: "வார்டு செயல்திறன்",
+                analytics: "நேர்மை vs வருவாய் தரவு"
+            },
+            alerts: {
+                title: "மூலோபாய எச்சரிக்கைகள்",
+                global_map: "உலகளாவிய அபாய வரைபடம்"
+            }
         }
     }
 };

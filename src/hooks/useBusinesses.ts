@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Business, CitizenReport } from '../types/types';
 import { api } from '../api/client';
+import { useOfflineSync } from './useOfflineSync';
 import type { BusinessListResponse, BusinessSingleResponse } from '../types/api';
 import { showToast } from './useToast';
 
@@ -10,6 +11,7 @@ export const useBusinesses = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const stateVersionRef = useRef(0);
+    const { isOnline, addToSyncQueue } = useOfflineSync();
 
     const fetchAll = useCallback(async () => {
         const currentVersion = ++stateVersionRef.current;
@@ -23,12 +25,32 @@ export const useBusinesses = () => {
             
             if (currentVersion !== stateVersionRef.current) return;
 
-            if (bizRes.data) setBusinesses(bizRes.data);
-            if (reportsRes.data) setReports(reportsRes.data);
+            if (bizRes.data) {
+                setBusinesses(bizRes.data);
+                localStorage.setItem('tn_mbnr_cache_businesses', JSON.stringify(bizRes.data));
+            }
+            if (reportsRes.data) {
+                setReports(reportsRes.data);
+                localStorage.setItem('tn_mbnr_cache_reports', JSON.stringify(reportsRes.data));
+            }
         } catch (err) {
             if (currentVersion !== stateVersionRef.current) return;
-            setError(err instanceof Error ? err.message : 'Sync failed');
-            showToast('Sync failed', 'error');
+            
+            // Fallback to cache
+            const cachedBiz = localStorage.getItem('tn_mbnr_cache_businesses');
+            const cachedReports = localStorage.getItem('tn_mbnr_cache_reports');
+            
+            if (cachedBiz) {
+                setBusinesses(JSON.parse(cachedBiz));
+                showToast('Operating on Local Cache: API Grid Unreachable', 'warning');
+            } else {
+                setError(err instanceof Error ? err.message : 'Sync failed');
+                showToast('Grid Sync Failed: Running Sandbox Mode', 'error');
+            }
+
+            if (cachedReports) {
+                setReports(JSON.parse(cachedReports));
+            }
         } finally {
             if (currentVersion === stateVersionRef.current) {
                 setIsLoading(false);
@@ -41,11 +63,18 @@ export const useBusinesses = () => {
     }, [fetchAll]);
 
     const registerBusiness = async (business: Business) => {
+        if (!isOnline) {
+            // Optimistic Update
+            setBusinesses(prev => [business, ...prev]);
+            addToSyncQueue('CERTIFY', business);
+            showToast('Offline Mode: Registration queued locally', 'warning');
+            return business;
+        }
+
         try {
             const response = await api.post<BusinessSingleResponse>('/businesses', business);
             const newBusiness = response.data || business;
             
-            // Increment version to ignore any pending fetches that might be stale
             stateVersionRef.current++;
             setBusinesses(prev => [newBusiness, ...prev]);
             
@@ -58,19 +87,25 @@ export const useBusinesses = () => {
         }
     };
 
-    const updateStatus = async (id: string, status: 'Verified' | 'Rejected') => {
+    const updateStatus = async (id: string, status: 'Verified' | 'Rejected', hash?: string) => {
+        // Optimistic Update
+        setBusinesses(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+        
+        if (!isOnline) {
+            addToSyncQueue('INSPECTION', { businessId: id, status, hash });
+            showToast('Action queued for background synchronization', 'info');
+            return;
+        }
+
         try {
-            await api.put(`/admin/businesses/${id}/status`, { status });
-            
-            // Increment version to ignore any pending fetches
+            await api.put(`/admin/businesses/${id}/status`, { status, inspectorHash: hash });
             stateVersionRef.current++;
-            setBusinesses(prev => prev.map(b => b.id === id ? { ...b, status } : b));
-            
             showToast(`Status updated to ${status}`, 'success');
         } catch (err) {
+            // Rollback on failure if online
+            fetchAll(); 
             const message = err instanceof Error ? err.message : 'Update failed';
             showToast(message, 'error');
-            throw err;
         }
     };
 
