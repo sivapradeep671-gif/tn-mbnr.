@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import type { Business } from '../types/types';
 import { showToast } from '../hooks/useToast';
 import { NotificationCenter } from './NotificationCenter';
+import { TradeLicense } from './TradeLicense';
 
 interface MerchantDashboardProps {
     business: Business;
@@ -19,78 +20,12 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
     const [timeLeft, setTimeLeft] = useState<number>(0);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [stats] = useState({ total: 156, verified: 150, failed: 6 });
+    const [showLicense, setShowLicense] = useState<boolean>(false);
 
 
 
     const generateCertificate = () => {
-        showToast('Generating official municipal certificate...', 'success');
-        // Simulated license data based on TN Business Facilitation Act 2018
-        const licenseData = {
-            id: business.id,
-            tradeName: business.tradeName,
-            legalName: business.legalName,
-            address: business.address,
-            ward: business.municipal_ward || 'W01',
-            nic: business.nic_category || 'Commercial',
-            issuedAt: new Date().toLocaleDateString(),
-            expiryAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-            hash: btoa(business.id + Date.now()).substring(0, 16).toUpperCase()
-        };
-
-        const win = window.open('', '_blank');
-        if (win) {
-            win.document.write(`
-                <html>
-                    <head>
-                        <title>Official License | Government of Tamil Nadu</title>
-                        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;900&display=swap" rel="stylesheet">
-                        <style>
-                            body { margin: 0; padding: 40px; font-family: 'Outfit', sans-serif; background: #020617; color: #fff; }
-                            .license-card { border: 10px solid #eab308; padding: 60px; min-height: 80vh; position: relative; border-radius: 40px; }
-                            .header { text-align: center; margin-bottom: 60px; }
-                            .logo { color: #eab308; font-size: 48px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
-                            .subtitle { color: #64748b; font-weight: 900; letter-spacing: 0.3em; text-transform: uppercase; font-size: 12px; }
-                            .content { margin-top: 40px; line-height: 2; font-size: 18px; }
-                            .field { margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
-                            .label { color: #64748b; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; display: block; }
-                            .value { font-weight: 600; font-size: 20px; }
-                            .seal-box { position: absolute; bottom: 60px; right: 60px; text-align: center; }
-                            .qr-placeholder { width: 120px; height: 120px; background: #fff; padding: 10px; border-radius: 12px; margin-bottom: 10px; }
-                            .blockchain-badge { font-family: monospace; font-size: 10px; color: #eab308; opacity: 0.7; }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="license-card">
-                            <div class="header">
-                                <div class="logo">TrustReg TN</div>
-                                <div class="subtitle">Government of Tamil Nadu • Business Registry License</div>
-                            </div>
-                            <div class="content">
-                                <div class="field"><span class="label">Trade Name</span><span class="value">${licenseData.tradeName}</span></div>
-                                <div class="field"><span class="label">Legal Entity</span><span class="value">${licenseData.legalName}</span></div>
-                                <div class="field"><span class="label">Registered Address</span><span class="value">${licenseData.address}</span></div>
-                                <div class="grid" style="display: grid; grid-template-cols: 1fr 1fr; gap: 40px;">
-                                    <div class="field"><span class="label">Municipal Ward</span><span class="value">${licenseData.ward}</span></div>
-                                    <div class="field"><span class="label">NIC Category</span><span class="value">${licenseData.nic}</span></div>
-                                </div>
-                                <div class="grid" style="display: grid; grid-template-cols: 1fr 1fr; gap: 40px;">
-                                    <div class="field"><span class="label">Date of Issue</span><span class="value">${licenseData.issuedAt}</span></div>
-                                    <div class="field"><span class="label">Valid Until</span><span class="value">${licenseData.expiryAt}</span></div>
-                                </div>
-                            </div>
-                            <div class="seal-box">
-                                <div class="qr-placeholder">
-                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=TN-MBNR-${licenseData.id}-${licenseData.hash}" />
-                                </div>
-                                <div class="blockchain-badge">VERIFIED LEDGER HASH: ${licenseData.hash}</div>
-                            </div>
-                        </div>
-                    </body>
-                </html>
-            `);
-            win.document.close();
-            win.print();
-        }
+        setShowLicense(true);
     };
 
     const fetchNewToken = React.useCallback(async () => {
@@ -379,6 +314,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
                     </div>
 
                     <NotificationCenter />
+                    {showLicense && <TradeLicense business={business} onClose={() => setShowLicense(false)} />}
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
     Users, 
     BarChart3, 
@@ -10,59 +10,100 @@ import {
     ArrowDownRight,
     Search,
     Download,
-    Zap
+    Zap,
+    TrendingDown,
+    AlertCircle,
+    Bot
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import type { Business, CitizenReport } from '../types/types';
 
-export const ExecutiveDashboard: React.FC = () => {
-    const { t } = useLanguage();
+interface ExecutiveDashboardProps {
+    businesses: Business[];
+    reports: CitizenReport[];
+}
+
+export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ businesses, reports }) => {
+    const { t, language } = useLanguage();
+
+    // Dynamic KPI Calculation
+    const stats = useMemo(() => {
+        const total = businesses.length;
+        const verified = businesses.filter(b => b.status === 'Verified').length;
+        const complianceIndex = total > 0 ? (verified / total) * 100 : 0;
+        const highRisk = businesses.filter(b => (b.riskScore || 0) > 70).length;
+        
+        // Mock revenue calculation based on business count and category weights
+        const projectedRevenue = businesses.reduce((acc, b) => {
+            const base = b.category === 'Industrial' ? 50000 : 15000;
+            return acc + base;
+        }, 0) / 1000000; // in Millions
+
+        return {
+            total,
+            verified,
+            complianceIndex: complianceIndex.toFixed(1),
+            highRisk,
+            revenue: `₹${projectedRevenue.toFixed(1)}M`
+        };
+    }, [businesses]);
 
     const kpis = [
         { 
             label: t.executive.kpis.revenue, 
-            value: '₹84.2M', 
-            change: '+12.5%', 
+            value: stats.revenue, 
+            change: '+14.2%', 
             trend: 'up', 
             icon: Landmark, 
             color: 'text-green-500',
-            sub: 'Property + Professional Tax'
+            sub: 'Projected Regional Yield'
         },
         { 
             label: t.executive.kpis.compliance, 
-            value: '91.4%', 
-            change: '+2.1%', 
+            value: `${stats.complianceIndex}%`, 
+            change: '+3.5%', 
             trend: 'up', 
             icon: TrendingUp, 
             color: 'text-indigo-400',
-            sub: 'Across 15 Municipal Wards'
+            sub: 'Verification Ratio'
         },
         { 
             label: t.executive.kpis.risk, 
-            value: '24', 
-            change: '-8.0%', 
+            value: stats.highRisk.toString(), 
+            change: '-12%', 
             trend: 'down', 
             icon: ShieldAlert, 
             color: 'text-red-500',
-            sub: 'Pending Forensic Audit'
+            sub: 'Forensic Flags Active'
         },
         { 
             label: t.executive.kpis.verified, 
-            value: '1,402', 
-            change: '+45', 
+            value: stats.verified.toLocaleString(), 
+            change: `+${businesses.filter(b => b.status === 'Verified').length}`, 
             trend: 'up', 
             icon: Users, 
             color: 'text-yellow-500',
-            sub: 'Active Trust-IDs issued'
+            sub: 'Authentic Trust-IDs'
         }
     ];
 
-    const wardPerformance = [
-        { ward: 'W01 - T-Nagar', compliance: 94, revenue: '₹12.1M' },
-        { ward: 'W04 - Anna Nagar', compliance: 92, revenue: '₹9.4M' },
-        { ward: 'W08 - Adyar', compliance: 88, revenue: '₹7.2M' },
-        { ward: 'W12 - Velachery', compliance: 85, revenue: '₹6.8M' },
-        { ward: 'W15 - Mylapore', compliance: 96, revenue: '₹14.2M' },
-    ];
+    // Dynamic Ward Analysis
+    const wardPerformance = useMemo(() => {
+        const wards = ['W01', 'W04', 'W08', 'W12', 'W15'];
+        return wards.map(w => {
+            const wardBusinesses = businesses.filter(b => b.address?.includes(w) || b.id.includes(w));
+            const count = wardBusinesses.length;
+            const verified = wardBusinesses.filter(b => b.status === 'Verified').length;
+            const compliance = count > 0 ? (verified / count) * 100 : Math.floor(Math.random() * 20) + 75;
+            const revenue = count > 0 ? `₹${(count * 0.8).toFixed(1)}M` : `₹${(Math.random() * 5 + 5).toFixed(1)}M`;
+            
+            return {
+                ward: `${w} - Strategic Node`,
+                compliance: Math.min(Math.round(compliance), 100),
+                revenue
+            };
+        }).sort((a, b) => b.compliance - a.compliance);
+    }, [businesses]);
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-reveal-up relative">
@@ -169,55 +210,94 @@ export const ExecutiveDashboard: React.FC = () => {
                     </h3>
                     
                     <div className="space-y-10">
-                        {[
-                            { ward: 'W04', msg: 'High concentration of pending taxes in Commercial Sector B.', time: '12m ago', severity: 'High' },
-                            { ward: 'W08', msg: 'AI Scrutiny flagged 3 naming conflicts in Adyar cluster.', time: '45m ago', severity: 'Med' },
-                            { ward: 'W15', msg: 'Target revenue threshold achieved for Q2.', time: '2h ago', severity: 'Low' }
-                        ].map((alert, i) => (
-                            <div key={i} className="flex gap-5 group cursor-default">
-                                <div className={`w-1.5 shrink-0 rounded-full transition-all duration-300 group-hover:scale-y-110 ${
-                                    alert.severity === 'High' ? 'bg-red-500 shadow-lg shadow-red-500/50' : 
-                                    alert.severity === 'Med' ? 'bg-yellow-500 shadow-lg shadow-yellow-500/50' : 
-                                    'bg-green-500 shadow-lg shadow-green-500/50'
-                                }`} />
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-center mb-1.5">
-                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-300 transition-colors">{alert.ward} • {alert.time}</p>
-                                        <span className={`text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded border ${
-                                            alert.severity === 'High' ? 'border-red-500/40 text-red-400' : 
-                                            alert.severity === 'Med' ? 'border-yellow-500/40 text-yellow-400' : 
-                                            'border-green-500/40 text-green-400'
-                                        }`}>
-                                            {alert.severity} Priority
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-slate-400 leading-relaxed font-medium group-hover:text-slate-200 transition-colors">{alert.msg}</p>
-                                </div>
-                            </div>
-                        ))}
                     </div>
+                </div>
 
-                    <div className="mt-14 p-8 bg-slate-950/80 rounded-[2rem] border border-white/5 border-dashed relative overflow-hidden group hover:border-indigo-500/40 transition-all duration-500">
-                        <div className="absolute inset-0 bg-indigo-500/[0.02] opacity-0 group-hover:opacity-100 transition-opacity" />
+                {/* AI Strategy Advisor */}
+                <div className="lg:col-span-3">
+                    <div className="glass-card p-1 sm:p-2 rounded-[3rem] border border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 via-slate-950 to-slate-950 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
+                        <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-yellow-500/5 rounded-full blur-[80px]" />
                         
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-indigo-500/10 rounded-lg">
-                                    <MapIcon className="h-4 w-4 text-indigo-400" />
+                        <div className="relative z-10 p-10 flex flex-col md:flex-row gap-12 items-center">
+                            <div className="shrink-0 relative">
+                                <div className="absolute inset-0 bg-indigo-500 rounded-full blur-2xl opacity-20 animate-pulse" />
+                                <div className="h-40 w-40 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 flex items-center justify-center relative bg-slate-900 shadow-2xl animate-spin-slow">
+                                    <Bot className="h-16 w-16 text-indigo-400 -rotate-12" />
                                 </div>
-                                <span className="text-[10px] font-black text-white uppercase tracking-widest">{t.executive.alerts.global_map}</span>
+                                <div className="absolute -bottom-2 right-0 px-4 py-1.5 bg-yellow-500 text-slate-950 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                                    Trust-AI v2.1
+                                </div>
                             </div>
-                            <ArrowUpRight className="h-4 w-4 text-slate-600 group-hover:text-indigo-400 transition-all" />
-                        </div>
-                        
-                        <div className="aspect-[16/10] rounded-2xl bg-slate-900 flex flex-col items-center justify-center border border-white/5 shadow-inner relative overflow-hidden">
-                            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20" />
-                            <div className="relative z-10 flex flex-col items-center">
-                                <div className="h-8 w-8 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin-slow mb-3" />
-                                <span className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] animate-pulse">Geo-Matrix Pre-loading...</span>
+
+                            <div className="flex-1 space-y-6">
+                                <div>
+                                    <h3 className="h-display text-3xl mb-2 flex items-center gap-4">
+                                        {language === 'ta' ? 'AI வியூக' : 'AI Strategic'} <span className="text-glow text-indigo-400">{language === 'ta' ? 'ஆலோசகர்' : 'Advisor'}</span>
+                                        <div className="px-3 py-1 bg-green-500/10 text-green-500 rounded-lg text-[10px] font-black animate-pulse border border-green-500/20">LIVE ENGINE</div>
+                                    </h3>
+                                    <p className="text-slate-500 text-xs font-black uppercase tracking-[0.2em]">{language === 'ta' ? 'Macroscopic நகராட்சி நுண்ணறிவு' : 'Macroscopic Municipal Intelligence'}</p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <TrendingUp className="h-4 w-4 text-green-500" />
+                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{language === 'ta' ? 'வளர்ச்சி வாய்ப்பு' : 'Yield Opportunity'}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-400 leading-relaxed italic">
+                                            {language === 'ta' 
+                                                ? '"Ward 15-ல் வணிகச் செயல்பாடுகள் 12% அதிகரித்துள்ளன. கூடுதல் வருவாய் வசூலுக்கு இதுவே சரியான தருணம்."' 
+                                                : '"Ward 15 has shown a 12% surge in industrial activity. High probability for exponential Professional Tax yield if audits are accelerated."'}
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <AlertCircle className="h-4 w-4 text-red-500" />
+                                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{language === 'ta' ? 'அபாய எச்சரிக்கை' : 'Risk Advisory'}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-400 leading-relaxed italic">
+                                            {language === 'ta' 
+                                                ? '"Ward 04-ல் உள்ள 18 கடைகள் போலி பெயர்களை பயன்படுத்த வாய்ப்புள்ளது. AI தணிக்கை அவசரமாகத் தேவை."' 
+                                                : '"Cognitive engine detected high label-mimicry patterns in Ward 04 clusters. Recommend deployment of forensic inspectors for deep-logo audits."'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="pt-6 flex gap-4">
+                                    <button className="px-8 py-3 bg-indigo-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/40 hover:scale-105 transition-all">
+                                        Execute AI Recommendations
+                                    </button>
+                                    <button className="px-8 py-3 bg-white/5 text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border border-white/10 hover:bg-white/10 transition-all">
+                                        Recalibrate Neural Node
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Strategic Impact Dimensions */}
+            <div className="mt-24 border-t border-white/5 pt-20">
+                <div className="text-center mb-16">
+                    <h2 className="h-display text-4xl mb-4 italic">
+                        {language === 'ta' ? 'தாக்க' : 'Impact'} <span className="text-glow text-yellow-500">{language === 'ta' ? 'அளவீடுகள்' : 'Matrix'}</span>
+                    </h2>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">{language === 'ta' ? 'நாட்டின் e-Governance எதிர்காலம்' : 'The Future of State e-Governance'}</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {t.impact.rows.map((item, i) => (
+                        <div key={i} className="glass-card p-8 rounded-[2rem] border-white/5 bg-white/[0.01] group hover:bg-white/[0.03] transition-all">
+                             <div className="flex items-center gap-4 mb-4">
+                                <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,1)]" />
+                                <h4 className="text-[10px] font-black text-yellow-500 uppercase tracking-widest">{item.dim}</h4>
+                            </div>
+                            <p className="text-sm text-slate-400 leading-relaxed group-hover:text-slate-200 transition-colors">{item.adv}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

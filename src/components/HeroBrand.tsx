@@ -30,7 +30,7 @@ export const Hero: React.FC<HeroProps> = ({ onRegister, onScan, onCitizenRegiste
                 </h1>
 
                 <p className="max-w-2xl mx-auto text-lg sm:text-2xl text-slate-400/90 mb-12 leading-relaxed reveal-up font-medium" style={{ animationDelay: '0.2s' }}>
-                    {t.hero?.subtitle || "A unified architectural portal for business registration, verified identity, and civic integrity powered by next-gen AI and Blockchain."}
+                    {t.hero?.subtitle || "The world's first multi-tenant SaaS e-governance platform. Deploy secure, blockchain-verified digital infrastructure for your district in minutes."}
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-6 max-w-3xl mx-auto reveal-up" style={{ animationDelay: '0.3s' }}>

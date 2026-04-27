@@ -1,7 +1,7 @@
 import React from 'react'; 
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, Map as MapIcon, Filter, Layers, MapPin, ShieldCheck } from 'lucide-react';
+import { Search, Map as MapIcon, Filter, Layers, MapPin, ShieldCheck, Activity } from 'lucide-react';
 import type { Business, CitizenReport } from '../types/types';
 import { useLanguage } from '../context/LanguageContext';
 import { VoiceInput } from './VoiceInput';
@@ -24,6 +24,27 @@ export const MapExplorer: React.FC<MapExplorerProps> = ({ businesses, reports })
     const { t } = useLanguage();
     const centerPosition: [number, number] = [10.7905, 78.7047];
     const [showSafeZones, setShowSafeZones] = React.useState(false);
+    const [isGridMode, setIsGridMode] = React.useState(false);
+
+    // Simulated scan pulses for "Wow" factor
+    const [pulses, setPulses] = React.useState<{id: string, pos: [number, number]}[]>([]);
+
+    React.useEffect(() => {
+        if (!isGridMode) {
+            setPulses([]);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const randomBiz = businesses[Math.floor(Math.random() * businesses.length)];
+            if (randomBiz && randomBiz.latitude) {
+                const newPulse = { id: Math.random().toString(), pos: [randomBiz.latitude, randomBiz.longitude] as [number, number] };
+                setPulses(prev => [...prev.slice(-5), newPulse]);
+            }
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [isGridMode, businesses]);
 
     const filteredBusinesses = showSafeZones 
         ? businesses.filter(b => b.status === 'Verified' && (b.riskScore || 0) < 3) 
@@ -74,8 +95,20 @@ export const MapExplorer: React.FC<MapExplorerProps> = ({ businesses, reports })
                             <span className="hidden sm:inline">{showSafeZones ? 'Safe Zones Active' : 'Show Safe Zones'}</span>
                         </button>
                         
+                        <button 
+                            onClick={() => setIsGridMode(!isGridMode)}
+                            className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl border transition-all text-xs font-black uppercase tracking-widest active:scale-95 ${
+                                isGridMode 
+                                ? 'bg-indigo-500 text-white border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.4)]' 
+                                : 'bg-white/5 text-white border-white/10 hover:bg-white/10'
+                            }`}
+                        >
+                            <Activity className={`h-4 w-4 ${isGridMode ? 'animate-pulse text-white' : 'text-indigo-400'}`} />
+                            <span className="hidden sm:inline">Grid Watch</span>
+                        </button>
+                        
                         <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-6 py-3.5 rounded-2xl border border-white/10 transition-all text-xs font-black uppercase tracking-widest active:scale-95">
-                            <Filter className="h-4 w-4 text-yellow-500" />
+                            <Layers className="h-4 w-4 text-yellow-500" />
                             <span className="hidden sm:inline">Layers</span>
                         </button>
                     </div>
@@ -163,6 +196,19 @@ export const MapExplorer: React.FC<MapExplorerProps> = ({ businesses, reports })
                             </Marker>
                         );
                     })}
+                    {isGridMode && pulses.map(pulse => (
+                        <L.Circle 
+                            key={pulse.id}
+                            center={pulse.pos}
+                            radius={50000}
+                            pathOptions={{
+                                color: '#6366f1',
+                                fillColor: '#6366f1',
+                                fillOpacity: 0.1,
+                                weight: 1
+                            }}
+                        />
+                    ))}
                 </MapContainer>
 
                 {/* Legend Floating Card */}

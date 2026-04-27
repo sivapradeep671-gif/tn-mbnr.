@@ -13,7 +13,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
-    login: (phone: string, role: Role) => Promise<void>;
+    login: (phone: string, role: Role, password?: string) => Promise<void>;
     logout: () => void;
     isAuthenticated: boolean;
     isLoading: boolean;
@@ -62,11 +62,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [validateSession]);
 
-    const login = async (phone: string, role: Role) => {
+    const login = async (phone: string, role: Role, password?: string) => {
         setIsLoading(true);
         try {
             // Master Key Bypass for Demo/Pilot Access
-            if (phone === '9876543210') {
+            const isMasterAccess = phone === '9876543210' && password === '1234';
+            
+            if (isMasterAccess || (phone === '9876543210' && role === 'citizen')) {
                 const mockToken = `TRUSTREG-DEMO-${btoa(phone + role)}`;
                 const mockUser = { id: `MOCK-${role.toUpperCase()}`, phone, role };
                 
@@ -79,7 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone, role }),
+                body: JSON.stringify({ phone, role, password }),
             });
 
             if (response.ok) {

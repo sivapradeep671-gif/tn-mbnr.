@@ -34,24 +34,47 @@ const MerchantDashboard = lazy(() => import('./components/MerchantDashboard').th
 const InspectorDashboard = lazy(() => import('./components/InspectorDashboard').then(m => ({ default: m.InspectorDashboard })));
 const ExecutiveDashboard = lazy(() => import('./components/ExecutiveDashboard').then(m => ({ default: m.ExecutiveDashboard })));
 const AIAssistant = lazy(() => import('./components/extensions/AIAssistant').then(m => ({ default: m.AIAssistant })));
+const SaaSMarketplace = lazy(() => import('./components/SaaSMarketplace').then(m => ({ default: m.SaaSMarketplace })));
+const SaaSPricing = lazy(() => import('./components/SaaSPricing').then(m => ({ default: m.SaaSPricing })));
+const SaaSAdmin = lazy(() => import('./components/SaaSAdmin').then(m => ({ default: m.SaaSAdmin })));
+import { SaaSProvider, useSaaS } from './context/SaaSContext';
 
 const APP_VERSION = '1.1.0 (Senior Build)';
 
 function LoadingFallback() {
   return (
-    <div className="min-h-[calc(100vh-160px)] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-6">
-        <div className="relative">
-          <div className="h-16 w-16 border-4 border-yellow-500/10 border-t-yellow-500 rounded-full animate-spin"></div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Zap className="h-6 w-6 text-yellow-500 animate-pulse" />
-          </div>
+    <div className="min-h-[calc(100vh-160px)] flex flex-col items-center justify-center p-8 relative overflow-hidden">
+        <div className="absolute inset-0 mesh-gradient opacity-5 animate-pulse" />
+        
+        <div className="relative z-10 flex flex-col items-center">
+            <div className="relative mb-12">
+                <div className="absolute inset-0 bg-yellow-500 blur-[80px] opacity-10 animate-pulse" />
+                <div className="relative w-24 h-24 flex items-center justify-center">
+                    <div className="absolute inset-0 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin-slow" />
+                    <div className="absolute inset-3 border-2 border-slate-700 border-b-yellow-500/30 rounded-full animate-spin-reverse" />
+                    <Shield className="h-10 w-10 text-yellow-500 drop-shadow-[0_0_15px_rgba(234,179,8,0.8)]" />
+                </div>
+            </div>
+
+            <div className="space-y-6 text-center max-w-sm">
+                <div className="flex flex-col gap-2">
+                     <p className="text-yellow-500 font-black text-[10px] uppercase tracking-[0.4em] animate-pulse">
+                        Authenticating Nodal Trust...
+                    </p>
+                    <div className="h-1 w-48 bg-white/5 rounded-full mx-auto overflow-hidden border border-white/5">
+                        <div className="h-full bg-yellow-500 animate-progress-infinite shadow-[0_0_10px_rgba(234,179,8,1)]" />
+                    </div>
+                </div>
+                <div className="mt-8 grid grid-cols-3 gap-8 opacity-40">
+                     {['REGISTRY', 'BLOCKCHAIN', 'AI_NODE'].map(node => (
+                         <div key={node} className="flex flex-col items-center gap-2">
+                             <div className="w-1 h-1 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,1)] animate-ping" />
+                             <span className="text-[6.5px] font-black text-slate-500 uppercase tracking-widest">{node}</span>
+                         </div>
+                     ))}
+                </div>
+            </div>
         </div>
-        <div className="text-center">
-          <p className="text-yellow-500 font-black text-[10px] uppercase tracking-[0.4em] mb-2">Synchronizing Node</p>
-          <p className="text-slate-500 text-[9px] font-medium uppercase tracking-widest animate-pulse">Initializing Component Sandbox...</p>
-        </div>
-      </div>
     </div>
   );
 }
@@ -59,6 +82,7 @@ function LoadingFallback() {
 function AppContent() {
   const { t } = useLanguage();
   const { user, isLoading: authLoading } = useAuth();
+  const { currentTenant } = useSaaS();
   const { businesses, reports, updateStatus, registerBusiness } = useBusinesses();
   
   const [currentView, setCurrentView] = useState('HOME');
@@ -147,6 +171,12 @@ function AppContent() {
               return <PublicRegistry businesses={businesses} />;
             case 'LOGIN':
               return <Login onLoginSuccess={handleLoginSuccess} />;
+            case 'MARKETPLACE':
+              return <SaaSMarketplace />;
+            case 'PRICING':
+              return <SaaSPricing />;
+            case 'SAAS_ADMIN':
+              return <SaaSAdmin />;
             case 'DASHBOARD':
               if (user?.role === 'business') {
                 const business = businesses.find(b => b.id === user.id) || businesses[0];
@@ -156,13 +186,13 @@ function AppContent() {
                 return <InspectorDashboard businesses={businesses} onUpdateStatus={updateStatus} />;
               }
               if (user?.role === 'executive') {
-                return <ExecutiveDashboard />;
+                return <ExecutiveDashboard businesses={businesses} reports={reports} />;
               }
               return <Dashboard businesses={businesses} reports={reports} onUpdateStatus={updateStatus} />;
             case 'INSPECTOR_DASHBOARD':
                 return <InspectorDashboard businesses={businesses} onUpdateStatus={updateStatus} />;
             case 'EXECUTIVE_DASHBOARD':
-                return <ExecutiveDashboard />;
+                return <ExecutiveDashboard businesses={businesses} reports={reports} />;
             default:
               return (
                 <Hero 
@@ -185,7 +215,7 @@ function AppContent() {
       {/* Universal Priority Banner Stack */}
       <div className="fixed top-0 left-0 w-full z-[60] flex flex-col">
         <div className="w-full bg-yellow-500/95 text-slate-900 text-[9px] font-black py-1.5 px-4 text-center tracking-[0.3em] uppercase border-b border-yellow-600/20">
-          Enterprise Build – TrustReg TN Platform v{APP_VERSION}
+          Enterprise Build – {currentTenant.name} Platform v{APP_VERSION}
         </div>
 
         {isBackendOffline && (
@@ -243,9 +273,11 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <LanguageProvider>
-        <AppContent />
-      </LanguageProvider>
+      <SaaSProvider>
+        <LanguageProvider>
+          <AppContent />
+        </LanguageProvider>
+      </SaaSProvider>
     </AuthProvider>
   );
 }

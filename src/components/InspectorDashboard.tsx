@@ -24,6 +24,7 @@ import {
 import type { Business } from '../types/types';
 import { FieldAuditSimulator } from './FieldAuditSimulator';
 import { VoiceInput } from './VoiceInput';
+import { announceStatus } from '../utils/voiceUtils';
 
 interface InspectorDashboardProps {
     businesses: Business[];
@@ -37,6 +38,23 @@ export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ business
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const [activeTab, setActiveTab] = useState<'SCRUTINY' | 'AUDIT_LOG' | 'SIMULATOR'>('SCRUTINY');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [isVoiceActive, setIsVoiceActive] = useState(false);
+
+    const handleVoiceCommand = (transcript: string) => {
+        const cmd = transcript.toLowerCase();
+        console.log("[INSPECTOR VOICE] Detected:", cmd);
+        
+        if (cmd.includes('verify') || cmd.includes('சரி')) {
+            if (selectedBusiness) {
+                handleApprove();
+                announceStatus('Verified', selectedBusiness.tradeName);
+            }
+        } else if (cmd.includes('search') || cmd.includes('தேடு')) {
+            const query = cmd.replace('search', '').replace('தேடு', '').trim();
+            setSearchTerm(query);
+        }
+    };
+
     const [aiResult, setAiResult] = useState<any>(null);
     const [isSigning, setIsSigning] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
@@ -201,7 +219,10 @@ export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ business
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                                        <VoiceInput onResult={(text) => setSearchTerm(text)} />
+                                        <VoiceInput 
+                                            onResult={handleVoiceCommand} 
+                                            placeholder={language === 'ta' ? "குரல் கட்டளை (சரிபார்க்கவும் / தேடவும்)" : "Voice Command (Verify / Search)"} 
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex gap-2">

@@ -10,6 +10,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const { login } = useAuth();
     const [role, setRole] = useState<'citizen' | 'business' | 'admin' | 'inspector' | 'executive'>('citizen');
     const [phone, setPhone] = useState('');
+    const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +20,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setError(null);
 
         try {
-            await login(phone, role);
+            await login(phone, role, password);
             onLoginSuccess(role);
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : 'Authentication failed';
@@ -82,9 +83,27 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                             placeholder={role === 'citizen' ? 'Enter 10-digit number' : 'Enter ID'}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all"
                         />
-                        <p className="mt-2 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
-                            Pilot Access Key: <span className="text-yellow-500/80">9876543210</span>
-                        </p>
+                    </div>
+
+                    {(role !== 'citizen') && (
+                        <div>
+                            <label className="block text-sm font-medium text-slate-400 mb-2">
+                                Administrative Master Key
+                            </label>
+                            <input
+                                type="password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="Enter Master Password"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-white focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none transition-all"
+                            />
+                        </div>
+                    )}
+
+                    <div className="mt-2 text-[10px] text-slate-500 font-mono uppercase tracking-[0.2em] space-y-1">
+                        <p>Pilot ID: <span className="text-yellow-500/80">9876543210</span></p>
+                        {role !== 'citizen' && <p>Master Key: <span className="text-glow text-yellow-400">1234</span></p>}
                     </div>
 
                     <button

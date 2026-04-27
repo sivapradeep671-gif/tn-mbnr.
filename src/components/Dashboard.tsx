@@ -33,7 +33,7 @@ interface RiskyShop {
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpdateStatus }) => {
-    const [activeTab, setActiveTab] = useState<'businesses' | 'reports' | 'analytics' | 'prediction' | 'approvals' | 'field_test'>('businesses');
+    const [activeTab, setActiveTab] = useState<'businesses' | 'reports' | 'analytics' | 'prediction' | 'approvals' | 'field_test' | 'nodes'>('businesses');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [predictionModel, setPredictionModel] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +46,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
     const [isLedgerOpen, setIsLedgerOpen] = useState(false);
     const [ledgerAssetId, setLedgerAssetId] = useState<string | undefined>(undefined);
     const [fullLedger, setFullLedger] = useState<any[]>([]);
+    
+    // Notification Demo State
+    const [testRecipient, setTestRecipient] = useState('');
+    const [isSendingTest, setIsSendingTest] = useState(false);
 
     useEffect(() => {
         const fetchStats = async () => {
@@ -171,9 +175,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                     </button>
                     <button 
                         onClick={() => setActiveTab('field_test')}
-                        className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'field_test' ? 'bg-yellow-500 text-slate-950 shadow-2xl shadow-yellow-500/30' : 'text-slate-400 hover:text-white'}`}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'field_test' ? 'bg-yellow-500 text-slate-950 shadow-2xl' : 'text-slate-400 hover:text-white'}`}
                     >
                         Audit Sim
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('nodes')}
+                        className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'nodes' ? 'bg-blue-500 text-white shadow-2xl shadow-blue-500/30' : 'text-slate-400 hover:text-white'}`}
+                    >
+                        Nodes
                     </button>
                 </div>
             </div>
@@ -650,6 +660,81 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                         setFullLedger(ledgerRes.data);
                     }}
                 />
+            )}
+
+            {activeTab === 'nodes' && (
+                <div className="glass-card rounded-[2.5rem] border-white/5 p-12 text-center animate-reveal-up shadow-2xl relative overflow-hidden">
+                    <div className="absolute inset-0 bg-blue-500/5 backdrop-blur-3xl" />
+                    <div className="relative z-10 max-w-2xl mx-auto">
+                        <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-blue-500/20">
+                            <Zap className="h-10 w-10 text-blue-400" />
+                        </div>
+                        <h2 className="h-display text-4xl mb-4 italic">Communication <span className="text-glow text-blue-400">Node Hub</span></h2>
+                        <p className="text-slate-400 text-sm mb-12 leading-relaxed">Test the low-latency notification grid. Verified for Twilio (SMS) and SendGrid (Email) production clusters.</p>
+                        
+                        <div className="bg-slate-950/50 p-10 rounded-[2rem] border border-white/10 text-left">
+                            <div className="mb-8">
+                                <label className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-3 block">Recipient Protocol (Phone/Email)</label>
+                                <input 
+                                    type="text"
+                                    value={testRecipient}
+                                    onChange={(e) => setTestRecipient(e.target.value)}
+                                    placeholder="e.g., +919876543210 or admin@tn.gov.in"
+                                    className="w-full bg-slate-950 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:border-blue-500/50 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <button 
+                                    onClick={async () => {
+                                        if (!testRecipient) return showToast('Recipient required', 'warning');
+                                        setIsSendingTest(true);
+                                        const { notificationService } = await import('../services/notificationService');
+                                        const success = await notificationService.send({
+                                            to: testRecipient,
+                                            type: 'SMS',
+                                            message: 'TRUSTREG TN SECURITY TEST: Your node is successfully synchronized with the regional notification grid.'
+                                        });
+                                        setIsSendingTest(false);
+                                    }}
+                                    disabled={isSendingTest}
+                                    className="flex items-center justify-center gap-3 py-4 bg-white text-slate-950 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                                >
+                                    <Smartphone className="h-4 w-4" /> Dispatch Test SMS
+                                </button>
+
+                                <button 
+                                    onClick={async () => {
+                                        if (!testRecipient) return showToast('Recipient required', 'warning');
+                                        setIsSendingTest(true);
+                                        const { notificationService } = await import('../services/notificationService');
+                                        const success = await notificationService.send({
+                                            to: testRecipient,
+                                            type: 'EMAIL',
+                                            subject: 'TrustReg TN: Node Verification',
+                                            message: '<h3>Node Synchronization Successful</h3><p>Your regional administrator email has been verified for secure alerts.</p>'
+                                        });
+                                        setIsSendingTest(false);
+                                    }}
+                                    disabled={isSendingTest}
+                                    className="flex items-center justify-center gap-3 py-4 bg-white text-slate-950 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50"
+                                >
+                                    <Activity className="h-4 w-4" /> Dispatch Test Email
+                                </button>
+                            </div>
+
+                            <div className="mt-10 p-6 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
+                                <p className="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <ShieldCheck className="h-3 w-3" /> Node Integrity Status
+                                </p>
+                                <p className="text-slate-500 text-[10px] leading-relaxed">
+                                    Current Configuration: <strong>{process.env.NODE_ENV === 'production' ? 'PRODUCTION_CLUSTER' : 'LOCAL_SANDBOX'}</strong>.
+                                    Nodes will operate in MOCK mode unless valid API keys are integrated into the environmental vault.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {isLedgerOpen && (

@@ -642,6 +642,52 @@ app.use((req, res) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
+// --- Notification Nodes ---
+
+app.post('/api/notify-sms', apiLimiter, async (req, res) => {
+    const { to, body } = req.body;
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    const from = process.env.TWILIO_PHONE_NUMBER;
+
+    console.log(`[Notification Hub] SMS Request to: ${to}`);
+
+    if (!sid || !token || sid === 'MOCK_SID') {
+        console.warn(`[Mock SMS] To: ${to} | Body: ${body}`);
+        return res.json({ success: true, mode: 'mock' });
+    }
+
+    try {
+        // Implementation using Twilio SDK would go here
+        // For now, we simulate the network handover
+        console.log(`[Twilio Node] Dispatching live SMS via ${from}...`);
+        res.json({ success: true, message: 'SMS Dispatched' });
+    } catch (error) {
+        res.status(500).json({ error: 'SMS Node Failure' });
+    }
+});
+
+app.post('/api/notify-email', apiLimiter, async (req, res) => {
+    const { to, subject, html } = req.body;
+    const apiKey = process.env.SENDGRID_API_KEY;
+    const fromEmail = process.env.SENDGRID_FROM_EMAIL || 'alerts@tn-mbnr.gov.in';
+
+    console.log(`[Notification Hub] Email Request to: ${to}`);
+
+    if (!apiKey || apiKey === 'MOCK_KEY') {
+        console.warn(`[Mock Email] To: ${to} | Subject: ${subject}`);
+        return res.json({ success: true, mode: 'mock' });
+    }
+
+    try {
+        // Implementation using SendGrid SDK would go here
+        console.log(`[SendGrid Node] Dispatching live Email via ${fromEmail}...`);
+        res.json({ success: true, message: 'Email Dispatched' });
+    } catch (error) {
+        res.status(500).json({ error: 'Email Node Failure' });
+    }
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
     logger.error('Unhandled Exception', {

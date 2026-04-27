@@ -8,7 +8,10 @@ export const translations = {
             login: "Login",
             admin: "Admin",
             scan_qr: "Scan QR",
-            inspector: "Inspection Hub"
+            inspector: "Inspection Hub",
+            marketplace: "Services",
+            pricing: "Pricing",
+            saas_admin: "Control Center"
         },
         hero: {
             badge: "TN-MBNR Trust Network Pilot",
@@ -318,7 +321,10 @@ export const translations = {
             login: "உள்நுழை",
             admin: "நிர்வாகம்",
             scan_qr: "QR ஸ்கேன்",
-            inspector: "ஆய்வு மையம்"
+            inspector: "ஆய்வு மையம்",
+            marketplace: "சேவைகள்",
+            pricing: "விலை",
+            saas_admin: "கட்டுப்பாட்டு மையம்"
         },
         hero: {
             badge: "TN-MBNR நம்பிக்கை நெட்வொர்க் முன்னோடி",

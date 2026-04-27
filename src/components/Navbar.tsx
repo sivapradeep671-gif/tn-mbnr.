@@ -2,6 +2,7 @@ import React from 'react';
 import { Languages, Menu, X, LogOut, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { TenantSelector } from './TenantSelector';
 
 interface NavbarProps {
     currentView: string;
@@ -26,13 +27,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView }) =
         setIsMobileMenuOpen(false);
     };
 
-    const navItems = ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'REPORT', 'SCAN', 'INSPECTOR_DASHBOARD'].filter(view => {
-        if (!user) return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
-        if (user.role === 'citizen') return ['HOME', 'MAP', 'REGISTRY', 'REPORT', 'SCAN'].includes(view);
-        if (user.role === 'business') return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
-        if (user.role === 'inspector') return ['HOME', 'INSPECTOR_DASHBOARD', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
-        if (user.role === 'admin') return ['HOME', 'DASHBOARD', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
-        if (user.role === 'executive') return ['HOME', 'EXECUTIVE_DASHBOARD', 'MAP', 'REGISTRY', 'SCAN'].includes(view);
+    const navItems = ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'REPORT', 'SCAN', 'MARKETPLACE', 'PRICING'].filter(view => {
+        if (!user) return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN', 'MARKETPLACE', 'PRICING'].includes(view);
+        if (user.role === 'citizen') return ['HOME', 'MAP', 'REGISTRY', 'REPORT', 'SCAN', 'MARKETPLACE', 'PRICING'].includes(view);
+        if (user.role === 'business') return ['HOME', 'REGISTER', 'MAP', 'REGISTRY', 'SCAN', 'MARKETPLACE', 'PRICING'].includes(view);
+        if (user.role === 'inspector') return ['HOME', 'INSPECTOR_DASHBOARD', 'MAP', 'REGISTRY', 'SCAN', 'MARKETPLACE'].includes(view);
+        if (user.role === 'admin') return ['HOME', 'DASHBOARD', 'SAAS_ADMIN', 'MAP', 'REGISTRY', 'SCAN', 'MARKETPLACE', 'PRICING'].includes(view);
+        if (user.role === 'executive') return ['HOME', 'EXECUTIVE_DASHBOARD', 'SAAS_ADMIN', 'MAP', 'REGISTRY', 'SCAN', 'MARKETPLACE', 'PRICING'].includes(view);
         return true;
     });
 
@@ -43,6 +44,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView }) =
         REPORT: t.nav.report,
         SCAN: t.nav.scan_qr,
         REGISTRY: 'Registry',
+        MARKETPLACE: t.nav.marketplace,
+        PRICING: t.nav.pricing,
+        SAAS_ADMIN: t.nav.saas_admin,
         INSPECTOR_DASHBOARD: 'Inspection Hub',
         EXECUTIVE_DASHBOARD: 'Strategic Command',
     };
@@ -100,10 +104,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentView, setCurrentView }) =
 
                         {/* Right Side Icons */}
                         <div className="hidden md:flex items-center space-x-3">
+                            {/* Tenant Selector */}
+                            <TenantSelector />
+
                             {/* Sync Status Token */}
-                            <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                            <div className="hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></div>
-                                <span className="text-[9px] font-black text-green-500 uppercase tracking-widest leading-none">Verified</span>
+                                <span className="text-[9px] font-black text-green-500 uppercase tracking-widest leading-none">Node Sync</span>
                             </div>
 
                             {/* Language Switcher */}

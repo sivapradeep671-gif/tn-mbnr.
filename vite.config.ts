@@ -73,7 +73,7 @@ export default defineConfig(() => ({
       '/api': 'http://localhost:3001'
     }
   },
-  base: './',
+  base: process.env.VITE_BASE_PATH || './',
   test: {
     globals: true,
     environment: 'jsdom',
@@ -81,4 +81,4 @@ export default defineConfig(() => ({
     setupFiles: './src/setupTests.ts',
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache', 'e2e/**']
   },
-}))
+}));

@@ -1,9 +1,9 @@
 {
   "name": "tn-mbnr",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
-  "homepage": "https://sivapradeep671-gif.github.io/tn-mbnr./",
+  "homepage": "https://sivapradeep671-gif.github.io/tn-mbnr/",
   "scripts": {
     "dev": "vite",
     "start": "node server/index.cjs",

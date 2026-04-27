@@ -7,11 +7,11 @@
 export const twilioService = {
     sendSms: async (to: string, body: string): Promise<boolean> => {
         const sid = import.meta.env.VITE_TWILIO_ACCOUNT_SID;
-        const token = import.meta.env.VITE_TWILIO_AUTH_TOKEN;
-        const from = import.meta.env.VITE_TWILIO_PHONE_NUMBER;
+        
+        console.log(`[TrustReg Communications] Initiating SMS protocol for: ${to}`);
 
-        if (!sid || !token || sid === 'MOCK_SID') {
-            console.warn('[Twilio] Running in MOCK mode. SMS not sent to:', to);
+        if (!sid || sid === 'MOCK_SID') {
+            console.info('%c[MOCK MODE] SMS simulation successful.', 'color: #eab308; font-weight: bold;');
             return true;
         }
 
@@ -19,11 +19,12 @@ export const twilioService = {
             const response = await fetch('/api/notify-sms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to, body, from })
+                body: JSON.stringify({ to, body })
             });
-            return response.ok;
+            const data = await response.json();
+            return data.success;
         } catch (error) {
-            console.error('[Twilio] SMS dispatch failed:', error);
+            console.error('[Communication Error] SMS relay failure:', error);
             return false;
         }
     }
@@ -33,8 +34,10 @@ export const emailService = {
     sendEmail: async (to: string, subject: string, html: string): Promise<boolean> => {
         const apiKey = import.meta.env.VITE_SENDGRID_API_KEY;
 
+        console.log(`[TrustReg Communications] Initiating Email protocol for: ${to}`);
+
         if (!apiKey || apiKey === 'MOCK_KEY') {
-            console.warn('[SendGrid] Running in MOCK mode. Email not sent to:', to);
+            console.info('%c[MOCK MODE] Email simulation successful.', 'color: #eab308; font-weight: bold;');
             return true;
         }
 
@@ -44,9 +47,10 @@ export const emailService = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ to, subject, html })
             });
-            return response.ok;
+            const data = await response.json();
+            return data.success;
         } catch (error) {
-            console.error('[SendGrid] Email dispatch failed:', error);
+            console.error('[Communication Error] Email relay failure:', error);
             return false;
         }
     }
