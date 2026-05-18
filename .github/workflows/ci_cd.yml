@@ -46,7 +46,7 @@ jobs:
         run: npm run build
         env:
           VITE_GEMINI_API_KEY: "AIzaSyBalzoMrVzd6_RC9N-F_FXXUB4sVPiuVjU"
-
+          VITE_API_URL: "https://tn-mbnr-production.onrender.com"
           GITHUB_PAGES: "true"
           VITE_BASE_PATH: "/tn-mbnr/"
 
