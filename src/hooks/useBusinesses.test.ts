@@ -86,10 +86,10 @@ describe('useBusinesses Hook', () => {
 
         await waitFor(() => {
             expect(result.current.isLoading).toBe(false);
+            expect(showToast).toHaveBeenCalledWith('Grid Sync Failed: Initialized Sandbox Mock Data', 'warning');
         });
 
         expect(result.current.error).toBe('Network Error');
-        expect(showToast).toHaveBeenCalledWith('Grid Sync Failed: Running Sandbox Mode', 'error');
     });
 
     it('should update business status successfully', async () => {
