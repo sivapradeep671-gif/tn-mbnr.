@@ -9,8 +9,7 @@ import {
     CheckCircle2,
     ArrowRight,
     Zap,
-    X,
-    Loader2
+    X
 } from 'lucide-react';
 import { useSaaS } from '../context/SaaSContext';
 import { showToast } from '../hooks/useToast';

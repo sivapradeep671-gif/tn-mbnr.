@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, Hash, Clock, Database, XCircle, Search, Filter, Info, ChevronLeft, ChevronRight, Activity, ShieldCheck, Zap } from 'lucide-react';
 import type { Business } from '../types/types';
 import { api } from '../api/client';
@@ -34,16 +34,15 @@ export const BlockchainExplorer: React.FC<BlockchainExplorerProps> = ({ business
                 if (response.data) {
                     setBlocks(response.data);
                 }
-            } catch (err) {
-                console.error("Failed to fetch ledger:", err);
+            } catch {
                 // Fallback to generating from prop if API fails
                 const generatedBlocks: Block[] = businesses.map((b, index) => ({
                     index_id: index + 1,
-                    hash: `0x${Math.random().toString(16).substr(2, 64)}`,
+                    hash: `0x${b.id.replace(/-/g, '').padEnd(64, '0').slice(0, 64)}`,
                     previousHash: index === 0 ? "0x00000000000000000000000000000000000000000000000000000000000000" : "0xPARENT_HASH_REDACTED",
                     timestamp: b.registrationDate,
                     data: { tradeName: b.tradeName, type: b.type, gst: b.gstNumber || 'N/A', category: b.category },
-                    nonce: Math.floor(Math.random() * 10000),
+                    nonce: parseInt(b.id.replace(/[^0-9]/g, '').slice(0, 4) || '0', 10),
                     status: b.status === 'Verified' ? 'Verified' : 'Pending'
                 }));
                 setBlocks([...generatedBlocks].reverse());
@@ -225,6 +224,25 @@ export const BlockchainExplorer: React.FC<BlockchainExplorerProps> = ({ business
                                         ) : (
                                             <pre className="text-sm text-yellow-500/80 font-mono whitespace-pre-wrap">{String(block.data)}</pre>
                                         )}
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-8 pt-8 border-t border-white/5 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-2">Signature Algo</span>
+                                        <span className="text-sm font-mono text-slate-300">ECDSA-secp256k1</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-2">Gas Used (Mock)</span>
+                                        <span className="text-sm font-mono text-slate-300">21,000 gwei</span>
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-2">Consensus Nodes</span>
+                                        <div className="flex gap-1">
+                                            {[...Array(5)].map((_, i) => (
+                                                <div key={i} className={`w-2 h-4 rounded-sm ${block.status === 'Verified' ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} style={{ opacity: 1 - (i * 0.15) }} title="Auditor Node Active"></div>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>

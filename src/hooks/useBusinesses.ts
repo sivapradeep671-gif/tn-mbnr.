@@ -44,12 +44,26 @@ export const useBusinesses = () => {
                 setBusinesses(JSON.parse(cachedBiz));
                 showToast('Operating on Local Cache: API Grid Unreachable', 'warning');
             } else {
+                // Hardcoded Sandbox Data for Live Demo (GitHub Pages)
+                const mockBusinesses: Business[] = [
+                    { id: 'BIZ-001', tradeName: 'Anna Nagar Grand Mall', legalName: 'AGM Enterprises Pvt Ltd', type: 'Private Limited', category: 'General Trade', status: 'Verified', current_stage: 'FINAL', latitude: 13.0850, longitude: 80.2101, registrationDate: '2024-01-15T10:00:00Z', license_valid_till: '2025-01-15T00:00:00Z', contactNumber: '9876543210', license_status: 'ACTIVE' } as Business,
+                    { id: 'BIZ-002', tradeName: 'Old Silk House', legalName: 'Classic Weaves LLP', type: 'Partnership', category: 'Apparel', status: 'Verified', current_stage: 'FINAL', latitude: 13.0400, longitude: 80.2333, registrationDate: '2023-01-10T10:00:00Z', license_valid_till: '2024-01-10T00:00:00Z', contactNumber: '9876543211', license_status: 'ACTIVE' } as Business,
+                    { id: 'BIZ-003', tradeName: 'Sunrise Cafe', legalName: 'Naveen Foods', type: 'Sole Proprietorship', category: 'F&B', status: 'Pending', current_stage: 'SCRUTINY', latitude: 12.9800, longitude: 80.2200, registrationDate: '2024-04-10T10:00:00Z', license_valid_till: '2025-04-10T00:00:00Z', contactNumber: '9876543212', license_status: 'ACTIVE' } as Business
+                ];
+                setBusinesses(mockBusinesses);
+                localStorage.setItem('tn_mbnr_cache_businesses', JSON.stringify(mockBusinesses));
                 setError(err instanceof Error ? err.message : 'Sync failed');
-                showToast('Grid Sync Failed: Running Sandbox Mode', 'error');
+                showToast('Grid Sync Failed: Initialized Sandbox Mock Data', 'warning');
             }
 
             if (cachedReports) {
                 setReports(JSON.parse(cachedReports));
+            } else {
+                const mockReports: CitizenReport[] = [
+                    { id: 'REP-001', business_name: 'Unregistered Stall', location: 'Near Anna Statue', description: 'Operating without valid TrustReg QR code', severity: 'High', status: 'Under Review', timestamp: new Date().toISOString() } as CitizenReport
+                ];
+                setReports(mockReports);
+                localStorage.setItem('tn_mbnr_cache_reports', JSON.stringify(mockReports));
             }
         } finally {
             if (currentVersion === stateVersionRef.current) {

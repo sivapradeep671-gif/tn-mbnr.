@@ -77,6 +77,7 @@ export const SaaSProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSaaS = () => {
     const context = useContext(SaaSContext);
     if (!context) throw new Error('useSaaS must be used within a SaaSProvider');

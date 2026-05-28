@@ -29,7 +29,7 @@ export const CitizenReport: React.FC<CitizenReportProps> = ({ prefillName = "" }
         try {
             const result = await aiService.analyzeFraudReport({ description: val, businessName });
             setLiveFeedback(result.summary);
-        } catch (e) { /* silent fail for live */ }
+        } catch { /* silent fail for live */ }
     };
 
     const categories = ['Safety', 'Hygiene', 'Fraud', 'Harassment', 'Price Gouging', 'Other'];

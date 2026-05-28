@@ -63,13 +63,23 @@ export const HealthBadge: React.FC<{ score: number; grade: string; color: string
     </div>
 );
 
+interface HealthBreakdown {
+    taxCompliance?: {
+        property?: string;
+        water?: string;
+        professional?: string;
+    };
+    licenseStatus?: string;
+    verificationStatus?: string;
+}
+
 export const BusinessHealthDashboard: React.FC = () => {
     const { language } = useLanguage();
     const [scores, setScores] = useState<HealthData[]>([]);
     const [summary, setSummary] = useState<Summary | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
-    const [detailData, setDetailData] = useState<any>(null);
+    const [detailData, setDetailData] = useState<HealthData & { breakdown?: HealthBreakdown; eligibility?: Record<string, boolean> } | null>(null);
 
     useEffect(() => {
         fetchScores();
@@ -77,7 +87,7 @@ export const BusinessHealthDashboard: React.FC = () => {
 
     const fetchScores = async () => {
         try {
-            const res = await api.get<any>('/api/health-scores');
+            const res = await api.get<{ data: HealthData[]; summary?: Summary }>('/api/health-scores');
             setScores(res.data || []);
             setSummary(res.summary || null);
         } catch (err) {
@@ -90,12 +100,13 @@ export const BusinessHealthDashboard: React.FC = () => {
     const fetchDetail = async (businessId: string) => {
         setSelectedBusiness(businessId);
         try {
-            const res = await api.get<any>(`/api/health-score/${businessId}`);
+            const res = await api.get<HealthData & { breakdown?: HealthBreakdown; eligibility?: Record<string, boolean> }>(`/api/health-score/${businessId}`);
             setDetailData(res);
-        } catch (err) {
-            console.error('Failed to load detail', err);
+        } catch {
+            console.error('Failed to load detail');
         }
     };
+
 
     const isEn = language === 'en';
 

@@ -94,16 +94,34 @@ const approvalSchema = new mongoose.Schema({
     attachment_url: String
 }, { timestamps: true });
 
+// --- Grievance Schema ---
+const grievanceSchema = new mongoose.Schema({
+    business_id: { type: String, required: true, index: true },
+    business_name: String,
+    grievance_type: { type: String, required: true },
+    description: { type: String, required: true },
+    status: { type: String, default: 'SUBMITTED' },
+    priority: { type: String, default: 'NORMAL' },
+    submitted_by: String,
+    submitted_at: { type: Date, default: Date.now },
+    resolved_by: String,
+    resolved_at: Date,
+    resolution_notes: String,
+    escalation_level: { type: Number, default: 0 }
+}, { timestamps: true });
+
 const Business = mongoose.models.Business || mongoose.model('Business', businessSchema);
 const Ledger = mongoose.models.Ledger || mongoose.model('Ledger', ledgerSchema);
 const Scan = mongoose.models.Scan || mongoose.model('Scan', scanSchema);
 const Report = mongoose.models.Report || mongoose.model('Report', reportSchema);
 const Approval = mongoose.models.Approval || mongoose.model('Approval', approvalSchema);
+const Grievance = mongoose.models.Grievance || mongoose.model('Grievance', grievanceSchema);
 
 module.exports = {
     Business,
     Ledger,
     Scan,
     Report,
-    Approval
+    Approval,
+    Grievance
 };

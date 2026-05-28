@@ -3,12 +3,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { 
     Shield, 
     Award, 
-    Landmark, 
     Calendar, 
-    MapPin, 
     Hash, 
-    CheckCircle2, 
-    Download, 
     X,
     Printer,
     FileLock
@@ -27,11 +23,17 @@ export const TradeLicense: React.FC<TradeLicenseProps> = ({ business, onClose })
         window.print();
     };
 
-    const registrationDate = business.createdAt ? new Date(business.createdAt).toLocaleDateString() : new Date().toLocaleDateString();
-    const expiryDate = new Date(new Date(registrationDate).setFullYear(new Date(registrationDate).getFullYear() + 1)).toLocaleDateString();
+    const registrationDate = business.registrationDate ? new Date(business.registrationDate).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+    const expiryDate = new Date(new Date(registrationDate).setFullYear(new Date(registrationDate).getFullYear() + 1)).toLocaleDateString('en-IN');
     
-    // Generate a unique digital certificate ID based on registration details
-    const certId = `CERT-TN-${business.id.substring(0, 8).toUpperCase()}`;
+    // Generate a unique deterministic hash for the certificate based on business ID
+    const certHash = (() => {
+        let h = 0;
+        const s = `TN-${business.id}-CERT`;
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return h.toString(16).padStart(8, '0').toUpperCase();
+    })();
+    const blockchainHash = `0x${certHash}${certHash.split('').reverse().join('')}${certHash}${certHash.split('').reverse().join('')}${certHash}${certHash.split('').reverse().join('')}${certHash}${certHash.split('').reverse().join('')}`.slice(0, 66);
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-fade-in print:p-0 print:bg-white">
@@ -141,7 +143,7 @@ export const TradeLicense: React.FC<TradeLicenseProps> = ({ business, onClose })
                             <div>
                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Blockchain Integrity Hash</p>
                                 <p className="text-[9px] font-mono text-slate-500 break-all max-w-[300px]">
-                                    0x{Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}
+                                    {blockchainHash}
                                 </p>
                             </div>
                         </div>

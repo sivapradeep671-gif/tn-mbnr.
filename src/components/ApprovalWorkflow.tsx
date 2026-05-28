@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, Clock, FileText, User, Shield, Send, RefreshCw } from 'lucide-react';
 import { api } from '../api/client';
 import type { Business, RegistryApproval, WorkflowStage, WorkflowStatus } from '../types/types';
@@ -23,21 +23,21 @@ export const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ business, on
 
     const stages: WorkflowStage[] = ['SUBMITTED', 'SCRUTINY', 'INSPECTION', 'FINAL'];
 
-    const fetchHistory = async () => {
+    const fetchHistory = useCallback(async () => {
         setLoading(true);
         try {
             const res = await api.get<{ data: RegistryApproval[] }>(`/approvals/${business.id}`);
             setHistory(res.data);
-        } catch (err) {
-            console.error("Failed to fetch approval history:", err);
+        } catch {
+            console.error("Failed to fetch approval history");
         } finally {
             setLoading(false);
         }
-    };
+    }, [business.id]);
 
     useEffect(() => {
         fetchHistory();
-    }, [business.id]);
+    }, [fetchHistory]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,7 +55,7 @@ export const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ business, on
             setOrderRef('');
             fetchHistory();
             if (onUpdate) onUpdate(status);
-        } catch (err) {
+        } catch {
             showToast('Failed to update approval status', 'error');
         } finally {
             setSubmitting(false);
@@ -131,7 +131,7 @@ export const ApprovalWorkflow: React.FC<ApprovalWorkflowProps> = ({ business, on
                                                     {record.status}
                                                 </span>
                                             </div>
-                                            <span className="text-[8px] text-slate-500 font-black uppercase">{new Date(record.acted_at).toLocaleDateString()}</span>
+                                            <span className="text-[8px] text-slate-500 font-black uppercase">{new Date(record.acted_at).toLocaleDateString('en-IN')}</span>
                                         </div>
                                         {/* Hide comments from citizens if not final/approved */}
                                         {(isAdmin || record.status === 'APPROVED' || record.status === 'REJECTED') && (

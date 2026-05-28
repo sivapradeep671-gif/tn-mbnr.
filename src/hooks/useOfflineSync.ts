@@ -5,21 +5,16 @@ import { showToast } from './useToast';
 interface SyncAction {
     id: string;
     type: 'CERTIFY' | 'REPORT' | 'TAX_PAYMENT' | 'INSPECTION';
-    payload: any;
+    payload: unknown;
     timestamp: number;
 }
 
 export const useOfflineSync = () => {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
-    const [syncQueue, setSyncQueue] = useState<SyncAction[]>([]);
-
-    // Initialize queue from localStorage
-    useEffect(() => {
+    const [syncQueue, setSyncQueue] = useState<SyncAction[]>(() => {
         const savedQueue = localStorage.getItem('tn_mbnr_sync_queue');
-        if (savedQueue) {
-            setSyncQueue(JSON.parse(savedQueue));
-        }
-    }, []);
+        return savedQueue ? JSON.parse(savedQueue) : [];
+    });
 
     // Monitor Online Status
     useEffect(() => {
@@ -41,28 +36,6 @@ export const useOfflineSync = () => {
         };
     }, []);
 
-    const addToSyncQueue = useCallback((type: SyncAction['type'], payload: any) => {
-        const newAction: SyncAction = {
-            id: crypto.randomUUID(),
-            type,
-            payload,
-            timestamp: Date.now()
-        };
-
-        setSyncQueue(prev => {
-            const updated = [...prev, newAction];
-            localStorage.setItem('tn_mbnr_sync_queue', JSON.stringify(updated));
-            return updated;
-        });
-        
-        if (!isOnline) {
-            showToast(`Offline: ${type} queued for later sync.`, 'info');
-        } else {
-            // Trigger background sync attempt
-            processQueue();
-        }
-    }, [isOnline]);
-
     const processQueue = useCallback(async () => {
         if (!isOnline || syncQueue.length === 0) return;
 
@@ -71,12 +44,14 @@ export const useOfflineSync = () => {
             try {
                 // Map actions to real API calls
                 switch (action.type) {
-                    case 'INSPECTION':
-                        await api.put(`/admin/businesses/${action.payload.businessId}/status`, { 
-                            status: action.payload.status,
-                            inspectorHash: action.payload.hash 
+                    case 'INSPECTION': {
+                        const data = action.payload as { businessId: string; status: string; hash?: string };
+                        await api.put(`/admin/businesses/${data.businessId}/status`, { 
+                            status: data.status,
+                            inspectorHash: data.hash 
                         });
                         break;
+                    }
                     case 'REPORT':
                         await api.post('/reports', action.payload);
                         break;
@@ -107,6 +82,29 @@ export const useOfflineSync = () => {
             showToast(`Ledger synchronization complete.`, 'success');
         }
     }, [isOnline, syncQueue]);
+
+    const addToSyncQueue = useCallback((type: SyncAction['type'], payload: unknown) => {
+        const newAction: SyncAction = {
+            id: crypto.randomUUID(),
+            type,
+            payload,
+            timestamp: Date.now()
+        };
+
+        setSyncQueue(prev => {
+            const updated = [...prev, newAction];
+            localStorage.setItem('tn_mbnr_sync_queue', JSON.stringify(updated));
+            return updated;
+        });
+        
+        if (!isOnline) {
+            showToast(`Offline: ${type} queued for later sync.`, 'info');
+        } else {
+            // Trigger background sync attempt
+            processQueue();
+        }
+    }, [isOnline, processQueue]);
+
 
     // Attempt to process queue whenever coming online
     useEffect(() => {

@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const crypto = require('crypto');
-const db = require('./database.cjs'); // Keeping SQLite as fallback for now
 const mongoRepo = require('./database_mongo.cjs');
 const { Blockchain, Block } = require('./blockchain.cjs');
 const { calculateLicenseStatus, calculateLicenseTimestamps } = require('./licenseStatus.cjs');
@@ -13,7 +12,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const { validateBody } = require('./middleware/validateBody.cjs');
-const config = require('./config/secrets.cjs');
+const { config } = require('./config/secrets.cjs');
 const logger = require('./utils/logger.cjs');
 
 // Security secrets from hardened config
@@ -53,7 +52,6 @@ const tnMbnrChain = new Blockchain();
                     await mongoRepo.repository.addBlockToLedger(genesisBlock);
                     logger.info("Genesis Block established in MongoDB.");
                 } catch (genesisErr) {
-                    // Handle duplicate key (from a previous partial run)
                     if (genesisErr.code === 11000) {
                         logger.info("Genesis Block already exists in MongoDB. Skipping.");
                     } else {
@@ -70,24 +68,12 @@ const tnMbnrChain = new Blockchain();
                 logger.info("Blockchain synchronized from MongoDB", { blocks: tnMbnrChain.chain.length });
             }
         } else {
-            logger.warn("MongoDB offline. Falling back to SQLite Local Registry.");
-            // Legacy SQLite Loader
-            db.all("SELECT * FROM ledger ORDER BY index_id ASC", [], (err, rows) => {
-                if (err) logger.error("Error loading SQLite ledger", { error: err.message });
-                else if (rows && rows.length > 0) {
-                    tnMbnrChain.chain = rows.map(row => {
-                        const b = new Block(row.timestamp, JSON.parse(row.data), row.previousHash);
-                        b.hash = row.hash;
-                        b.nonce = row.nonce;
-                        return b;
-                    });
-                    logger.info("Blockchain synchronized from SQLite", { blocks: tnMbnrChain.chain.length });
-                }
-            });
+            logger.error("CRITICAL: MongoDB is offline. Cannot start server.");
+            process.exit(1);
         }
     } catch (bootErr) {
         logger.error("MongoDB bootstrap error", { error: bootErr.message });
-        logger.warn("Continuing with SQLite fallback");
+        process.exit(1);
     }
 })();
 
@@ -192,55 +178,40 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const { phone, role } = req.body;
     if (!phone || !role) return res.status(400).json({ error: 'Missing phone or role' });
 
-    // MongoDB Priority Path
-    if (mongoose.connection.readyState === 1) {
+    try {
         if (role === 'business') {
             const row = await mongoRepo.models.Business.findOne({ contactNumber: phone }).lean();
-            const businessId = row ? row.id : `BIZ-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+            const businessId = row ? row.id : `BIZ-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
             const token = generateToken({ id: businessId, phone, role });
             logger.info('User Login', { user_id: businessId, role, method: 'mongodb', ip: req.ip });
             return res.json({ message: 'Login successful', token, user: { id: businessId, phone, role } });
+        } else {
+            const userId = `USER-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+            const token = generateToken({ id: userId, phone, role });
+            logger.info('User Login', { user_id: userId, role, method: 'mongodb', ip: req.ip });
+            return res.json({ message: 'Login successful', token, user: { id: userId, phone, role } });
         }
-    }
-
-    // For Demo: If it's a merchant, find their business ID
-    if (role === 'business') {
-        db.get("SELECT id FROM businesses WHERE contactNumber = ?", [phone], (err, row) => {
-            const businessId = row ? row.id : `BIZ-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-            const token = generateToken({
-                id: businessId,
-                phone,
-                role
-            });
-            logger.info('User Login', { user_id: businessId, role, method: 'sqlite', ip: req.ip });
-            res.json({ message: 'Login successful', token, user: { id: businessId, phone, role } });
-        });
-    } else {
-        const userId = `USER-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-        const token = generateToken({
-            id: userId,
-            phone,
-            role
-        });
-        logger.info('User Login', { user_id: userId, role, ip: req.ip });
-        res.json({ message: 'Login successful', token, user: { id: userId, phone, role } });
+    } catch (err) {
+        logger.error('Login error', { error: err.message });
+        return res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.get('/api/businesses', apiLimiter, (req, res) => {
-    db.all("SELECT * FROM businesses", [], (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
-        res.json({ message: "success", data: rows });
-    });
+app.get('/api/businesses', apiLimiter, async (req, res) => {
+    try {
+        const businesses = await mongoRepo.models.Business.find({}).lean();
+        res.json({ message: "success", data: businesses });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.post('/api/verify-business', apiLimiter, authenticateToken, authorizeRoles('inspector', 'admin'), (req, res) => {
+app.post('/api/verify-business', apiLimiter, authenticateToken, authorizeRoles('inspector', 'admin'), async (req, res) => {
     const { businessName, type } = req.body;
     if (!businessName) return res.status(400).json({ error: "Missing business name" });
 
-    // In a real production app, this would use the Gemini AI service.
-    // For this build, we implement robust name-clash detection logic.
-    db.get("SELECT * FROM businesses WHERE tradeName = ? AND status != 'Rejected'", [businessName], (err, row) => {
+    try {
+        const row = await mongoRepo.models.Business.findOne({ tradeName: businessName, status: { $ne: 'Rejected' } }).lean();
         if (row) {
             return res.json({
                 isSafe: false,
@@ -250,96 +221,57 @@ app.post('/api/verify-business', apiLimiter, authenticateToken, authorizeRoles('
             });
         }
 
-        // Search for similar sounding names (basic Levenshtein-style or keyword match)
-        db.all("SELECT tradeName FROM businesses WHERE tradeName LIKE ?", [`%${businessName.substring(0, 3)}%`], (err, rows) => {
-            if (rows && rows.length > 0) {
-                return res.json({
-                    isSafe: true,
-                    riskLevel: 'Medium',
-                    similarBrands: rows.map(r => r.tradeName),
-                    message: "INTELLIGENCE ADVISORY: Similar brands detected in the regional grid. Proceed with documentation for validation."
-                });
-            }
-
-            res.json({
+        const regex = new RegExp(businessName.substring(0, 3), 'i');
+        const similar = await mongoRepo.models.Business.find({ tradeName: regex }).limit(5).lean();
+        
+        if (similar && similar.length > 0) {
+            return res.json({
                 isSafe: true,
-                riskLevel: 'Low',
-                message: "VERIFIED: Brand name clear of regional conflicts. Node synchronization complete."
+                riskLevel: 'Medium',
+                similarBrands: similar.map(r => r.tradeName),
+                message: "INTELLIGENCE ADVISORY: Similar brands detected in the regional grid. Proceed with documentation for validation."
             });
+        }
+
+        res.json({
+            isSafe: true,
+            riskLevel: 'Low',
+            message: "VERIFIED: Brand name clear of regional conflicts. Node synchronization complete."
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 const { businessSchema } = require('./validation/businessSchema.cjs');
 const { encrypt } = require('./utils/piiEncryption.cjs');
 
-app.post('/api/businesses', registrationLimiter, validateBody(businessSchema), (req, res) => {
+app.post('/api/businesses', registrationLimiter, validateBody(businessSchema), async (req, res) => {
     const b = req.body;
     const encryptedAadhaar = encrypt(b.aadhaar_no);
     const regDate = b.registrationDate || new Date().toISOString();
     const licenseTimestamps = calculateLicenseTimestamps(regDate);
     
-    // Dynamic SLA lookup
-    const slaKey = b.application_type === 'AMENDMENT' ? 'SLA_DAYS_AMENDMENT' : (b.application_type === 'RENEWAL' ? 'SLA_DAYS_RENEWAL' : 'SLA_DAYS_NEW');
-    
-    db.get("SELECT value FROM settings WHERE key = ?", [slaKey], (err, row) => {
-        const slaDays = parseInt(row?.value || '15');
-        const slaDeadline = new Date(Date.now() + slaDays * 24 * 60 * 60 * 1000).toISOString();
+    // Dynamic SLA lookup (Hardcoded for now as settings collection doesn't exist)
+    const slaDays = b.application_type === 'AMENDMENT' ? 15 : (b.application_type === 'RENEWAL' ? 15 : 15);
+    const slaDeadline = new Date(Date.now() + slaDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const sql = `INSERT INTO businesses (
-        id, legalName, tradeName, type, category, address, proofOfAddress, branchName, 
-        contactNumber, email, gstNumber, status, registrationDate, riskScore, latitude, longitude,
-        license_valid_till, grace_ends_at, pay_by_date, payment_done, license_status,
-        assessment_number, water_connection_no, property_tax_status, water_tax_status, professional_tax_status,
-        website, municipal_ward, nic_category, employee_count, application_type, sla_deadline_at, aadhaar_no, documents_metadata
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-
-    const params = [
-        b.id, b.legalName, b.tradeName, b.type, b.category, b.address, b.proofOfAddress, b.branchName,
-        b.contactNumber, b.email, b.gstNumber, b.status || 'Pending', regDate, b.riskScore || 5, b.latitude, b.longitude,
-        licenseTimestamps.license_valid_till,
-        licenseTimestamps.grace_ends_at,
-        licenseTimestamps.pay_by_date,
-        licenseTimestamps.payment_done,
-        licenseTimestamps.license_status,
-        b.assessment_number,
-        b.water_connection_no,
-        b.property_tax_status || 'Pending',
-        b.water_tax_status || 'Pending',
-        b.professional_tax_status || 'Pending',
-        b.website || '',
-        b.municipal_ward || '',
-        b.nic_category || '',
-        b.employee_count || 0,
-        b.application_type || 'NEW',
-        slaDeadline,
-        encryptedAadhaar || '',
-        b.documents_metadata || '{}'
-    ];
-
-    db.run(sql, params, async function (err) {
-        if (err) return res.status(400).json({ error: err.message });
-
-        // MongoDB Sync Path
-        if (mongoose.connection.readyState === 1) {
-            try {
-                await mongoRepo.models.Business.create({
-                    ...b,
-                    aadhaar_no: b.aadhaar_no, // Mongoose handles encryption if configured, otherwise store raw for now or reuse encrypt
-                    status: b.status || 'Pending',
-                    registrationDate: regDate,
-                    license_valid_till: licenseTimestamps.license_valid_till,
-                    grace_ends_at: licenseTimestamps.grace_ends_at,
-                    pay_by_date: licenseTimestamps.pay_by_date,
-                    payment_done: licenseTimestamps.payment_done,
-                    license_status: licenseTimestamps.license_status,
-                    sla_deadline_at: slaDeadline
-                });
-                logger.info('Business Synced to MongoDB', { business_id: b.id });
-            } catch (mErr) {
-                logger.warn('MongoDB Sync Failed', { business_id: b.id, error: mErr.message });
-            }
-        }
+    try {
+        const newBusiness = await mongoRepo.models.Business.create({
+            ...b,
+            aadhaar_no: encryptedAadhaar,
+            status: b.status || 'Pending',
+            registrationDate: regDate,
+            license_valid_till: licenseTimestamps.license_valid_till,
+            grace_ends_at: licenseTimestamps.grace_ends_at,
+            pay_by_date: licenseTimestamps.pay_by_date,
+            payment_done: licenseTimestamps.payment_done,
+            license_status: licenseTimestamps.license_status,
+            sla_deadline_at: slaDeadline,
+            property_tax_status: b.property_tax_status || 'Pending',
+            water_tax_status: b.water_tax_status || 'Pending',
+            professional_tax_status: b.professional_tax_status || 'Pending'
+        });
 
         const newBlock = new Block(new Date().toISOString(), {
             id: b.id,
@@ -348,25 +280,24 @@ app.post('/api/businesses', registrationLimiter, validateBody(businessSchema), (
             license: licenseTimestamps
         });
         tnMbnrChain.addBlock(newBlock);
-
-        const ledgerSql = `INSERT INTO ledger (timestamp, data, previousHash, hash, nonce) VALUES (?,?,?,?,?)`;
-        const ledgerParams = [newBlock.timestamp, JSON.stringify(newBlock.data), newBlock.previousHash, newBlock.hash, newBlock.nonce];
-
-        db.run(ledgerSql, ledgerParams);
+        
+        await mongoRepo.repository.addBlockToLedger(newBlock);
 
         res.json({ 
             message: "success", 
             data: { 
                 id: b.id, 
-                sqlite_last_id: this.lastID 
+                mongo_id: newBusiness._id 
             }, 
             blockHash: newBlock.hash 
         });
-    });
-    });
+    } catch (err) {
+        logger.error('Registration Error', { error: err.message });
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.put('/api/admin/businesses/:id/status', apiLimiter, authenticateToken, authorizeRoles('admin'), (req, res) => {
+app.put('/api/admin/businesses/:id/status', apiLimiter, authenticateToken, authorizeRoles('admin'), async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
@@ -374,30 +305,36 @@ app.put('/api/admin/businesses/:id/status', apiLimiter, authenticateToken, autho
         return res.status(400).json({ error: "Invalid status" });
     }
 
-    db.run("UPDATE businesses SET status = ? WHERE id = ?", [status, id], function(err) {
-        if (err) return res.status(400).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: "Business not found" });
+    try {
+        const updated = await mongoRepo.models.Business.findOneAndUpdate(
+            { id }, 
+            { status }, 
+            { new: true }
+        );
 
-        // Add to Ledger
+        if (!updated) return res.status(404).json({ error: "Business not found" });
+
         const newBlock = new Block(new Date().toISOString(), {
             id,
             action: 'StatusUpdate',
             newStatus: status
         });
         tnMbnrChain.addBlock(newBlock);
-
-        const ledgerSql = `INSERT INTO ledger (timestamp, data, previousHash, hash, nonce) VALUES (?,?,?,?,?)`;
-        db.run(ledgerSql, [newBlock.timestamp, JSON.stringify(newBlock.data), newBlock.previousHash, newBlock.hash, newBlock.nonce]);
+        await mongoRepo.repository.addBlockToLedger(newBlock);
 
         res.json({ message: "success", status, blockHash: newBlock.hash });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.get('/api/ledger', (req, res) => {
-    db.all("SELECT * FROM ledger ORDER BY index_id DESC", [], (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
+app.get('/api/ledger', async (req, res) => {
+    try {
+        const rows = await mongoRepo.models.Ledger.find({}).sort({ index: -1 }).lean();
         res.json({ message: "success", data: rows, isValid: tnMbnrChain.isChainValid() });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // --- QR & Verification Logic ---
@@ -423,10 +360,11 @@ const verifyQRToken = (token) => {
     }
 };
 
-app.get('/api/qr-token/:businessId', apiLimiter, (req, res) => {
+app.get('/api/qr-token/:businessId', apiLimiter, async (req, res) => {
     const { businessId } = req.params;
-    db.get("SELECT * FROM businesses WHERE id = ?", [businessId], (err, row) => {
-        if (err || !row) return res.status(404).json({ error: "Business not found" });
+    try {
+        const row = await mongoRepo.models.Business.findOne({ id: businessId }).lean();
+        if (!row) return res.status(404).json({ error: "Business not found" });
         
         const token = generateQRToken({
             id: row.id,
@@ -436,19 +374,25 @@ app.get('/api/qr-token/:businessId', apiLimiter, (req, res) => {
         });
         
         res.json({ token, expiresAt: Date.now() + 30000 });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/verify-scan', apiLimiter, (req, res) => {
+app.post('/api/verify-scan', apiLimiter, async (req, res) => {
     const { token, scannerLocation } = req.body;
     if (!token || !scannerLocation) return res.status(400).json({ error: "Missing token or location" });
 
     const verification = verifyQRToken(token);
     
     if (verification.status !== 'VALID') {
-        // Log failed scan
-        db.run("INSERT INTO scans (business_id, token, scan_lat, scan_lng, result) VALUES (?,?,?,?,?)",
-            ["UNKNOWN", token.substring(0, 20), scannerLocation.lat, scannerLocation.lng, verification.status]);
+        await mongoRepo.models.Scan.create({
+            business_id: "UNKNOWN",
+            token: token.substring(0, 20),
+            scan_lat: scannerLocation.lat,
+            scan_lng: scannerLocation.lng,
+            result: verification.status
+        });
         return res.json(verification);
     }
 
@@ -475,13 +419,18 @@ app.post('/api/verify-scan', apiLimiter, (req, res) => {
         message = `WARNING: This QR code is registered to another location (${Math.round(distance)}m away). Possible stolen identity.`;
     }
 
-    // Get full business data for response
-    db.get("SELECT * FROM businesses WHERE id = ?", [payload.id], (err, biz) => {
+    try {
+        const biz = await mongoRepo.models.Business.findOne({ id: payload.id }).lean();
         const licenseStatus = biz ? calculateLicenseStatus(biz) : null;
         
-        // Log scan
-        db.run("INSERT INTO scans (business_id, token, scan_lat, scan_lng, result, distance) VALUES (?,?,?,?,?,?)",
-            [payload.id, token.substring(0, 20), scannerLocation.lat, scannerLocation.lng, finalStatus, distance]);
+        await mongoRepo.models.Scan.create({
+            business_id: payload.id,
+            token: token.substring(0, 20),
+            scan_lat: scannerLocation.lat,
+            scan_lng: scannerLocation.lng,
+            result: finalStatus,
+            distance
+        });
 
         logger.info('QR Verification', { business_id: payload.id, status: finalStatus, distance: Math.round(distance) });
 
@@ -498,72 +447,154 @@ app.post('/api/verify-scan', apiLimiter, (req, res) => {
             } : null,
             license: licenseStatus
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Admin Stats
-app.get('/api/admin/shops', authenticateToken, authorizeRoles('admin'), (req, res) => {
-    const sql = `
-        SELECT b.*, 
-        (SELECT COUNT(*) FROM scans WHERE business_id = b.id) as total_scans,
-        (SELECT COUNT(*) FROM scans WHERE business_id = b.id AND result = 'VALID') as verified_scans,
-        (SELECT COUNT(*) FROM scans WHERE business_id = b.id AND result != 'VALID') as failed_scans
-        FROM businesses b
-    `;
-    db.all(sql, [], (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
-        res.json({ message: "success", shops: rows });
-    });
+app.get('/api/admin/shops', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try {
+        const shops = await mongoRepo.models.Business.aggregate([
+            {
+                $lookup: {
+                    from: "scans",
+                    localField: "id",
+                    foreignField: "business_id",
+                    as: "scans"
+                }
+            },
+            {
+                $addFields: {
+                    total_scans: { $size: "$scans" },
+                    verified_scans: {
+                        $size: {
+                            $filter: {
+                                input: "$scans",
+                                as: "scan",
+                                cond: { $eq: ["$$scan.result", "VALID"] }
+                            }
+                        }
+                    },
+                    failed_scans: {
+                        $size: {
+                            $filter: {
+                                input: "$scans",
+                                as: "scan",
+                                cond: { $ne: ["$$scan.result", "VALID"] }
+                            }
+                        }
+                    }
+                }
+            },
+            { $project: { scans: 0 } }
+        ]);
+        res.json({ message: "success", shops });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.get('/api/admin/suspicious', authenticateToken, authorizeRoles('admin'), (req, res) => {
-    db.all("SELECT s.*, b.tradeName FROM scans s LEFT JOIN businesses b ON s.business_id = b.id WHERE result != 'VALID' ORDER BY scanned_at DESC LIMIT 50", [], (err, scans) => {
-        if (err) return res.status(400).json({ error: err.message });
+app.get('/api/admin/suspicious', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try {
+        const scans = await mongoRepo.models.Scan.aggregate([
+            { $match: { result: { $ne: 'VALID' } } },
+            { $sort: { scanned_at: -1 } },
+            { $limit: 50 },
+            {
+                $lookup: {
+                    from: "businesses",
+                    localField: "business_id",
+                    foreignField: "id",
+                    as: "business"
+                }
+            },
+            {
+                $addFields: {
+                    tradeName: { $arrayElemAt: ["$business.tradeName", 0] }
+                }
+            },
+            { $project: { business: 0 } }
+        ]);
+
+        const risky = await mongoRepo.models.Scan.aggregate([
+            { $match: { result: { $ne: 'VALID' } } },
+            {
+                $group: {
+                    _id: "$business_id",
+                    failed_scans: { $sum: 1 }
+                }
+            },
+            { $sort: { failed_scans: -1 } },
+            { $limit: 10 },
+            {
+                $lookup: {
+                    from: "businesses",
+                    localField: "_id",
+                    foreignField: "id",
+                    as: "business"
+                }
+            },
+            {
+                $project: {
+                    shop_name: { $arrayElemAt: ["$business.tradeName", 0] },
+                    failed_scans: 1,
+                    risk_score: { $multiply: [{ $divide: ["$failed_scans", { $max: [1, "$failed_scans"] }] }, 100] } // Mock risk score calc
+                }
+            }
+        ]);
         
-        // Risky shops aggregation
-        const riskySql = `
-            SELECT b.tradeName as shop_name, COUNT(*) as failed_scans,
-            (CAST(COUNT(*) AS REAL) / (SELECT COUNT(*) FROM scans WHERE business_id = b.id)) * 100 as risk_score
-            FROM scans s
-            JOIN businesses b ON s.business_id = b.id
-            WHERE s.result != 'VALID'
-            GROUP BY b.id
-            ORDER BY failed_scans DESC
-            LIMIT 10
-        `;
-        
-        db.all(riskySql, [], (err, risky) => {
-            res.json({ message: "success", scans, top_risky_shops: risky || [] });
-        });
-    });
+        res.json({ message: "success", scans, top_risky_shops: risky });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // --- Approval Workflow ---
 
-app.get('/api/admin/pending-approvals', authenticateToken, authorizeRoles('admin'), (req, res) => {
-    const sql = `
-        SELECT b.*, 
-        (SELECT stage FROM registry_approvals WHERE registry_id = b.id ORDER BY acted_at DESC LIMIT 1) as current_stage,
-        (SELECT status FROM registry_approvals WHERE registry_id = b.id ORDER BY acted_at DESC LIMIT 1) as last_status
-        FROM businesses b
-        WHERE b.status NOT IN ('Verified', 'Rejected')
-        ORDER BY registrationDate ASC
-    `;
-    db.all(sql, [], (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
+app.get('/api/admin/pending-approvals', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+    try {
+        const rows = await mongoRepo.models.Business.aggregate([
+            { $match: { status: { $nin: ['Verified', 'Rejected'] } } },
+            { $sort: { registrationDate: 1 } },
+            {
+                $lookup: {
+                    from: "approvals",
+                    localField: "id",
+                    foreignField: "registry_id",
+                    as: "approvals"
+                }
+            },
+            {
+                $addFields: {
+                    latest_approval: { $arrayElemAt: [{ $slice: ["$approvals", -1] }, 0] }
+                }
+            },
+            {
+                $addFields: {
+                    current_stage: "$latest_approval.stage",
+                    last_status: "$latest_approval.status"
+                }
+            },
+            { $project: { approvals: 0, latest_approval: 0 } }
+        ]);
         res.json({ message: "success", data: rows });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.get('/api/approvals/:registry_id', apiLimiter, (req, res) => {
+app.get('/api/approvals/:registry_id', apiLimiter, async (req, res) => {
     const { registry_id } = req.params;
-    db.all("SELECT * FROM registry_approvals WHERE registry_id = ? ORDER BY acted_at DESC", [registry_id], (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
+    try {
+        const rows = await mongoRepo.models.Approval.find({ registry_id }).sort({ acted_at: -1 }).lean();
         res.json({ message: "success", data: rows });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.post('/api/approvals', authenticateToken, (req, res) => {
+app.post('/api/approvals', authenticateToken, async (req, res) => {
     const { registry_id, stage, status, comments, order_ref_no, valid_from, valid_to, attachment_url } = req.body;
     const { id: officerId, role: officerRole } = req.user;
 
@@ -571,7 +602,6 @@ app.post('/api/approvals', authenticateToken, (req, res) => {
         return res.status(400).json({ error: "Missing required approval fields" });
     }
 
-    // Role-Stage Mapping for TN e-Governance
     const allowedRoles = {
         'SCRUTINY': ['scrutiny_officer', 'admin'],
         'INSPECTION': ['inspector', 'admin'],
@@ -582,85 +612,83 @@ app.post('/api/approvals', authenticateToken, (req, res) => {
         return res.status(403).json({ error: `Permission denied: ${officerRole} cannot perform ${stage}` });
     }
 
-    const sql = `INSERT INTO registry_approvals (
-        registry_id, stage, status, acted_by_user_id, acted_by_role, comments, order_ref_no, valid_from, valid_to, attachment_url
-    ) VALUES (?,?,?,?,?,?,?,?,?,?)`;
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    const params = [
-        registry_id, stage, status, officerId, officerRole, 
-        comments, order_ref_no, valid_from, valid_to, attachment_url
-    ];
+    try {
+        const approval = await mongoRepo.models.Approval.create([{
+            registry_id, stage, status, acted_by_user_id: officerId, acted_by_role: officerRole, 
+            comments, order_ref_no, valid_from, valid_to, attachment_url
+        }], { session });
 
-    db.serialize(() => {
-        db.run("BEGIN TRANSACTION");
-        db.run(sql, params, function(err) {
-            if (err) {
-                db.run("ROLLBACK");
-                return res.status(400).json({ error: err.message });
-            }
-            
-            // Map workflow status to main business status
-            let bizStatus = 'Pending';
-            let nextStage = stage;
+        let bizStatus = 'Pending';
+        let nextStage = stage;
 
-            if (status === 'APPROVED') {
-                if (stage === 'SCRUTINY') nextStage = 'INSPECTION';
-                else if (stage === 'INSPECTION') nextStage = 'FINAL';
-                else if (stage === 'FINAL') bizStatus = 'Verified';
-            } else if (status === 'REJECTED') {
-                bizStatus = 'Rejected';
-            }
-            
-            // Update business status and lifecycle tracking
-            db.run("UPDATE businesses SET status = ?, current_stage = ? WHERE id = ?", [bizStatus, nextStage, registry_id], (err) => {
-                if (err) {
-                    db.run("ROLLBACK");
-                    return res.status(400).json({ error: "Record update error" });
-                }
+        if (status === 'APPROVED') {
+            if (stage === 'SCRUTINY') nextStage = 'INSPECTION';
+            else if (stage === 'INSPECTION') nextStage = 'FINAL';
+            else if (stage === 'FINAL') bizStatus = 'Verified';
+        } else if (status === 'REJECTED') {
+            bizStatus = 'Rejected';
+        }
+        
+        await mongoRepo.models.Business.findOneAndUpdate(
+            { id: registry_id },
+            { status: bizStatus, current_stage: nextStage },
+            { session }
+        );
 
-                // Add to Ledger for Immutable Audit Trail
-                const auditData = {
-                    id: registry_id,
-                    action: 'ApprovalTransition',
-                    stage,
-                    status,
-                    officer: officerId,
-                    role: officerRole,
-                    timestamp: new Date().toISOString()
-                };
-                
-                const newBlock = tnMbnrChain.addBlock(new Block(new Date().toISOString(), auditData));
-                const ledgerSql = `INSERT INTO ledger (timestamp, data, previousHash, hash, nonce) VALUES (?,?,?,?,?)`;
-                
-                db.run(ledgerSql, [newBlock.timestamp, JSON.stringify(newBlock.data), newBlock.previousHash, newBlock.hash, newBlock.nonce], (err) => {
-                    if (err) {
-                        db.run("ROLLBACK");
-                        return res.status(400).json({ error: "Ledger commit failure" });
-                    }
-                    db.run("COMMIT");
-                    res.json({ message: "success", approval_id: this.lastID, business_status: bizStatus, next_stage: nextStage });
-                });
-            });
-        });
-    });
+        const auditData = {
+            id: registry_id,
+            action: 'ApprovalTransition',
+            stage, status, officer: officerId, role: officerRole,
+            timestamp: new Date().toISOString()
+        };
+        
+        const newBlock = new Block(new Date().toISOString(), auditData);
+        tnMbnrChain.addBlock(newBlock);
+
+        const count = await mongoRepo.models.Ledger.countDocuments().session(session);
+        await mongoRepo.models.Ledger.create([{
+            index: count,
+            timestamp: newBlock.timestamp,
+            data: newBlock.data,
+            previousHash: newBlock.previousHash,
+            hash: newBlock.hash,
+            nonce: newBlock.nonce
+        }], { session });
+
+        await session.commitTransaction();
+        res.json({ message: "success", approval_id: approval[0]._id, business_status: bizStatus, next_stage: nextStage });
+    } catch (err) {
+        await session.abortTransaction();
+        res.status(400).json({ error: err.message });
+    } finally {
+        session.endSession();
+    }
 });
 
-app.post('/api/reports', upload.single('image'), (req, res) => {
+app.post('/api/reports', upload.single('image'), async (req, res) => {
     const { business_name, location, description, category, severity } = req.body;
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
     
-    const sql = `INSERT INTO reports (business_name, location, description, category, severity, image_path) VALUES (?,?,?,?,?,?)`;
-    db.run(sql, [business_name, location, description, category, severity, imagePath], function(err) {
-        if (err) return res.status(400).json({ error: err.message });
-        res.json({ message: "success", id: this.lastID, image: imagePath });
-    });
+    try {
+        const report = await mongoRepo.models.Report.create({
+            business_name, location, description, category, severity, image_path: imagePath
+        });
+        res.json({ message: "success", id: report._id, image: imagePath });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.get('/api/reports', apiLimiter, (req, res) => {
-    db.all("SELECT * FROM reports ORDER BY timestamp DESC", [], (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
+app.get('/api/reports', apiLimiter, async (req, res) => {
+    try {
+        const rows = await mongoRepo.models.Report.find({}).sort({ timestamp: -1 }).lean();
         res.json({ message: "success", data: rows });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // ============================================================
@@ -722,63 +750,66 @@ const getHealthGrade = (score) => {
     return { grade: 'F', label: 'Critical', color: '#ef4444' };
 };
 
-app.get('/api/health-score/:businessId', apiLimiter, (req, res) => {
+app.get('/api/health-score/:businessId', apiLimiter, async (req, res) => {
     const { businessId } = req.params;
 
-    db.get("SELECT * FROM businesses WHERE id = ?", [businessId], (err, business) => {
-        if (err || !business) return res.status(404).json({ error: "Business not found" });
+    try {
+        const business = await mongoRepo.models.Business.findOne({ id: businessId }).lean();
+        if (!business) return res.status(404).json({ error: "Business not found" });
 
-        // Get citizen report count
-        db.get("SELECT COUNT(*) as count FROM reports WHERE business_name = ?", [business.tradeName], (err2, reportRow) => {
-            const reportCount = reportRow?.count || 0;
+        const reportCount = await mongoRepo.models.Report.countDocuments({ business_name: business.tradeName });
 
-            // Get scan statistics
-            db.get(
-                "SELECT COUNT(*) as total, SUM(CASE WHEN result != 'VALID' THEN 1 ELSE 0 END) as failed FROM scans WHERE business_id = ?",
-                [businessId],
-                (err3, scanRow) => {
-                    const scanStats = { total: scanRow?.total || 0, failed: scanRow?.failed || 0 };
-                    const score = calculateHealthScore(business, reportCount, scanStats);
-                    const grading = getHealthGrade(score);
-
-                    res.json({
-                        message: "success",
-                        businessId: business.id,
-                        tradeName: business.tradeName,
-                        healthScore: score,
-                        grade: grading.grade,
-                        label: grading.label,
-                        color: grading.color,
-                        breakdown: {
-                            taxCompliance: {
-                                property: business.property_tax_status || 'Unknown',
-                                water: business.water_tax_status || 'Unknown',
-                                professional: business.professional_tax_status || 'Unknown'
-                            },
-                            licenseStatus: business.license_status || 'Unknown',
-                            verificationStatus: business.status,
-                            citizenReports: reportCount,
-                            fraudScans: scanStats.failed,
-                            riskScore: business.riskScore || 0
-                        },
-                        eligibility: {
-                            subsidyAccess: score >= 80,
-                            fastTrackRenewal: score >= 70,
-                            municipalContracts: score >= 85,
-                            prioritySupport: score >= 60
-                        }
-                    });
+        const scanStatsAgg = await mongoRepo.models.Scan.aggregate([
+            { $match: { business_id: businessId } },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    failed: { $sum: { $cond: [{ $ne: ["$result", "VALID"] }, 1, 0] } }
                 }
-            );
+            }
+        ]);
+
+        const scanStats = scanStatsAgg.length > 0 ? scanStatsAgg[0] : { total: 0, failed: 0 };
+        const score = calculateHealthScore(business, reportCount, scanStats);
+        const grading = getHealthGrade(score);
+
+        res.json({
+            message: "success",
+            businessId: business.id,
+            tradeName: business.tradeName,
+            healthScore: score,
+            grade: grading.grade,
+            label: grading.label,
+            color: grading.color,
+            breakdown: {
+                taxCompliance: {
+                    property: business.property_tax_status || 'Unknown',
+                    water: business.water_tax_status || 'Unknown',
+                    professional: business.professional_tax_status || 'Unknown'
+                },
+                licenseStatus: business.license_status || 'Unknown',
+                verificationStatus: business.status,
+                citizenReports: reportCount,
+                fraudScans: scanStats.failed,
+                riskScore: business.riskScore || 0
+            },
+            eligibility: {
+                subsidyAccess: score >= 80,
+                fastTrackRenewal: score >= 70,
+                municipalContracts: score >= 85,
+                prioritySupport: score >= 60
+            }
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Bulk health scores for dashboard
-app.get('/api/health-scores', apiLimiter, (req, res) => {
-    db.all("SELECT * FROM businesses", [], (err, businesses) => {
-        if (err) return res.status(400).json({ error: err.message });
-
+app.get('/api/health-scores', apiLimiter, async (req, res) => {
+    try {
+        const businesses = await mongoRepo.models.Business.find({}).lean();
         const scores = businesses.map(b => {
             const score = calculateHealthScore(b);
             const grading = getHealthGrade(score);
@@ -794,9 +825,7 @@ app.get('/api/health-scores', apiLimiter, (req, res) => {
             };
         });
 
-        // Sort by score descending
         scores.sort((a, b) => b.healthScore - a.healthScore);
-
         const avg = scores.length > 0 ? Math.round(scores.reduce((s, b) => s + b.healthScore, 0) / scores.length) : 0;
 
         res.json({
@@ -817,7 +846,9 @@ app.get('/api/health-scores', apiLimiter, (req, res) => {
                 }
             }
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ============================================================
@@ -826,24 +857,7 @@ app.get('/api/health-scores', apiLimiter, (req, res) => {
 // Human-in-the-loop administrative justice
 // ============================================================
 
-// Create grievances table
-db.run(`CREATE TABLE IF NOT EXISTS grievances (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    business_id TEXT NOT NULL,
-    business_name TEXT,
-    grievance_type TEXT NOT NULL,
-    description TEXT NOT NULL,
-    status TEXT DEFAULT 'SUBMITTED',
-    priority TEXT DEFAULT 'NORMAL',
-    submitted_by TEXT,
-    submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    resolved_by TEXT,
-    resolved_at DATETIME,
-    resolution_notes TEXT,
-    escalation_level INTEGER DEFAULT 0
-)`);
-
-app.post('/api/grievances', apiLimiter, (req, res) => {
+app.post('/api/grievances', apiLimiter, async (req, res) => {
     const { business_id, business_name, grievance_type, description, submitted_by } = req.body;
 
     if (!business_id || !grievance_type || !description) {
@@ -855,50 +869,47 @@ app.post('/api/grievances', apiLimiter, (req, res) => {
         return res.status(400).json({ error: `Invalid grievance type. Must be: ${validTypes.join(', ')}` });
     }
 
-    // Auto-set priority based on type
     let priority = 'NORMAL';
     if (grievance_type === 'FRAUD_FALSE_POSITIVE') priority = 'HIGH';
     if (grievance_type === 'STATUS_DISPUTE') priority = 'HIGH';
 
-    const sql = `INSERT INTO grievances (business_id, business_name, grievance_type, description, priority, submitted_by) VALUES (?,?,?,?,?,?)`;
-    db.run(sql, [business_id, business_name || '', grievance_type, description, priority, submitted_by || 'anonymous'], function(err) {
-        if (err) return res.status(400).json({ error: err.message });
+    try {
+        const grievance = await mongoRepo.models.Grievance.create({
+            business_id, business_name: business_name || '', grievance_type, description, priority, submitted_by: submitted_by || 'anonymous'
+        });
 
-        // Add to blockchain audit trail
         const auditBlock = new Block(new Date().toISOString(), {
             action: 'GrievanceFiled',
-            grievanceId: this.lastID,
+            grievanceId: grievance._id.toString(),
             businessId: business_id,
             type: grievance_type,
             priority
         });
         tnMbnrChain.addBlock(auditBlock);
+        await mongoRepo.repository.addBlockToLedger(auditBlock);
 
         res.json({
             message: "Grievance submitted successfully",
-            grievanceId: this.lastID,
+            grievanceId: grievance._id,
             status: 'SUBMITTED',
             priority,
             estimatedResolution: '48-72 hours',
             blockHash: auditBlock.hash
         });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.get('/api/grievances', apiLimiter, (req, res) => {
+app.get('/api/grievances', apiLimiter, async (req, res) => {
     const { status, business_id } = req.query;
-    let sql = "SELECT * FROM grievances";
-    const params = [];
-    const conditions = [];
+    const filter = {};
 
-    if (status) { conditions.push("status = ?"); params.push(status); }
-    if (business_id) { conditions.push("business_id = ?"); params.push(business_id); }
+    if (status) filter.status = status;
+    if (business_id) filter.business_id = business_id;
 
-    if (conditions.length > 0) sql += " WHERE " + conditions.join(" AND ");
-    sql += " ORDER BY submitted_at DESC";
-
-    db.all(sql, params, (err, rows) => {
-        if (err) return res.status(400).json({ error: err.message });
+    try {
+        const rows = await mongoRepo.models.Grievance.find(filter).sort({ submitted_at: -1 }).lean();
         res.json({
             message: "success",
             data: rows,
@@ -910,10 +921,12 @@ app.get('/api/grievances', apiLimiter, (req, res) => {
                 rejected: rows.filter(r => r.status === 'REJECTED').length
             }
         });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.put('/api/grievances/:id/resolve', apiLimiter, authenticateToken, authorizeRoles('admin'), (req, res) => {
+app.put('/api/grievances/:id/resolve', apiLimiter, authenticateToken, authorizeRoles('admin'), async (req, res) => {
     const { id } = req.params;
     const { status, resolution_notes } = req.body;
 
@@ -921,43 +934,149 @@ app.put('/api/grievances/:id/resolve', apiLimiter, authenticateToken, authorizeR
         return res.status(400).json({ error: "Invalid status" });
     }
 
-    const escalation = status === 'ESCALATED' ? ', escalation_level = escalation_level + 1' : '';
-    const sql = `UPDATE grievances SET status = ?, resolved_by = ?, resolved_at = CURRENT_TIMESTAMP, resolution_notes = ?${escalation} WHERE id = ?`;
+    try {
+        const updateDoc = {
+            status,
+            resolved_by: req.user.id,
+            resolved_at: new Date(),
+            resolution_notes: resolution_notes || ''
+        };
+        
+        if (status === 'ESCALATED') {
+            updateDoc.$inc = { escalation_level: 1 };
+        }
 
-    db.run(sql, [status, req.user.id, resolution_notes || '', id], function(err) {
-        if (err) return res.status(400).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: "Grievance not found" });
+        const updated = await mongoRepo.models.Grievance.findByIdAndUpdate(id, updateDoc, { new: true });
+        
+        if (!updated) return res.status(404).json({ error: "Grievance not found" });
 
-        // Audit trail
         const auditBlock = new Block(new Date().toISOString(), {
             action: 'GrievanceResolved',
-            grievanceId: parseInt(id),
+            grievanceId: id,
             newStatus: status,
             officer: req.user.id
         });
         tnMbnrChain.addBlock(auditBlock);
+        await mongoRepo.repository.addBlockToLedger(auditBlock);
 
         res.json({ message: "success", status, blockHash: auditBlock.hash });
-    });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // ============================================================
-// TIER-1 FEATURE: 3rd-Party Public Verification API
+// TIER-1 FEATURE: 3rd-Party Public Verification API (NDAP / OpenAPI Compliant)
 // Allows external apps (Swiggy, Zomato, etc.) to verify
 // if a business is municipally registered
 // No auth required — public read-only API
 // ============================================================
 
-app.get('/api/v1/verify/:businessId', (req, res) => {
+// ============================================================
+// e-Pramaan / Aadhaar e-KYC Mock API
+// ============================================================
+app.post('/api/ekyc/verify', (req, res) => {
+    const { aadhaar_no, otp } = req.body;
+    // In a real scenario, this would call UIDAI or e-Pramaan gateway
+    if (otp === '123456' || otp.length === 6) {
+        res.json({ success: true, message: 'Aadhaar identity verified via e-Pramaan mock' });
+    } else {
+        res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+});
+
+app.get('/api-docs/swagger.json', (req, res) => {
+    res.json({
+        openapi: "3.0.0",
+        info: {
+            title: "TN-MBNR TrustReg Public API",
+            version: "1.0.0",
+            description: "Public verification API adhering to Indian e-Governance NDAP and Open API standards."
+        },
+        servers: [{ url: "http://localhost:3001", description: "Local Node" }],
+        paths: {
+            "/api/v1/verify/{businessId}": {
+                get: {
+                    summary: "Verify a business registration",
+                    description: "Checks the municipal registry for the given business ID and returns health score and verification status.",
+                    parameters: [
+                        {
+                            name: "businessId",
+                            in: "path",
+                            required: true,
+                            schema: { type: "string" },
+                            description: "The unique registration ID of the business"
+                        }
+                    ],
+                    responses: {
+                        "200": {
+                            description: "Successful verification response",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            verified: { type: "boolean" },
+                                            registrationId: { type: "string" },
+                                            tradeName: { type: "string" },
+                                            status: { type: "string" },
+                                            healthScore: {
+                                                type: "object",
+                                                properties: {
+                                                    score: { type: "number" },
+                                                    grade: { type: "string" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "404": {
+                            description: "Business not found"
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+
+app.get('/api-docs', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <title>TN-MBNR Open API Specifications</title>
+      <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@4/swagger-ui.css" />
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://unpkg.com/swagger-ui-dist@4/swagger-ui-bundle.js" crossorigin></script>
+      <script>
+        window.onload = () => {
+          window.ui = SwaggerUIBundle({
+            url: '/api-docs/swagger.json',
+            dom_id: '#swagger-ui',
+          });
+        };
+      </script>
+    </body>
+    </html>
+    `);
+});
+
+app.get('/api/v1/verify/:businessId', async (req, res) => {
     const { businessId } = req.params;
 
-    // Set CORS headers for public access
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('X-API-Version', '1.0');
     res.setHeader('X-Powered-By', 'TN-MBNR TrustReg Platform');
 
-    db.get("SELECT * FROM businesses WHERE id = ?", [businessId], (err, business) => {
-        if (err || !business) {
+    try {
+        const business = await mongoRepo.models.Business.findOne({ id: businessId }).lean();
+        if (!business) {
             return res.status(404).json({
                 verified: false,
                 error: "Business not found in municipal registry",
@@ -1004,7 +1123,9 @@ app.get('/api/v1/verify/:businessId', (req, res) => {
                 provider: 'TN-MBNR Municipal Authority'
             }
         });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Serve Assets

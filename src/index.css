@@ -449,3 +449,22 @@ body {
   background-image: none !important;
   display: none !important;
 }
+
+/* ================================
+   GIGW ACCESSIBILITY STANDARDS
+   ================================ */
+html.text-size-normal { font-size: 100%; }
+html.text-size-large { font-size: 110%; }
+html.text-size-xlarge { font-size: 120%; }
+
+html.high-contrast {
+    filter: contrast(1.2) grayscale(0.1);
+}
+html.high-contrast body {
+    background-color: #000;
+    color: #fff;
+}
+html.high-contrast .glass-card {
+    background: #111;
+    border: 1px solid #fff;
+}

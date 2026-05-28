@@ -19,12 +19,14 @@ import {
     Zap,
     WifiOff,
     RefreshCw,
+    Download,
     Users as UserIcon
 } from 'lucide-react';
 import type { Business } from '../types/types';
 import { FieldAuditSimulator } from './FieldAuditSimulator';
 import { VoiceInput } from './VoiceInput';
 import { announceStatus } from '../utils/voiceUtils';
+import { exportToCSV } from '../utils/export';
 
 interface InspectorDashboardProps {
     businesses: Business[];
@@ -32,13 +34,12 @@ interface InspectorDashboardProps {
 }
 
 export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ businesses, onUpdateStatus }) => {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const { isOnline, syncQueueLength } = useOfflineSync();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const [activeTab, setActiveTab] = useState<'SCRUTINY' | 'AUDIT_LOG' | 'SIMULATOR'>('SCRUTINY');
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [isVoiceActive, setIsVoiceActive] = useState(false);
 
     const handleVoiceCommand = (transcript: string) => {
         const cmd = transcript.toLowerCase();
@@ -55,7 +56,7 @@ export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ business
         }
     };
 
-    const [aiResult, setAiResult] = useState<any>(null);
+    const [aiResult, setAiResult] = useState<{ isSafe: boolean; riskLevel: string; message: string; similarBrands?: string[] } | null>(null);
     const [isSigning, setIsSigning] = useState(false);
     const [txHash, setTxHash] = useState<string | null>(null);
 
@@ -140,6 +141,14 @@ export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ business
                 </div>
 
                 <div className="flex items-center gap-6">
+                    <button 
+                        onClick={() => exportToCSV(businesses, 'inspector_registry_export')}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black transition-all uppercase tracking-widest shadow-lg shadow-emerald-500/20"
+                    >
+                        <Download className="h-4 w-4" />
+                        Export Data
+                    </button>
+                    
                     {/* Sync Status Badge */}
                     <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border transition-all ${
                         isOnline ? 'bg-green-500/5 border-green-500/20 text-green-500' : 'bg-red-500/5 border-red-500/20 text-red-500 animate-pulse'
@@ -186,7 +195,7 @@ export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ business
                     <button
                         key={tab.id}
                         onClick={() => {
-                            setActiveTab(tab.id as any);
+                            setActiveTab(tab.id as 'SCRUTINY' | 'AUDIT_LOG' | 'SIMULATOR');
                             setAiResult(null);
                         }}
                         className={`
@@ -226,6 +235,13 @@ export const InspectorDashboard: React.FC<InspectorDashboardProps> = ({ business
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => exportToCSV(businesses, 'MBNR_Inspector_Export')}
+                                        title="Export All Data to Excel / CSV"
+                                        className="p-4 bg-green-600/20 border border-green-500/30 rounded-2xl text-green-500 hover:bg-green-500 hover:text-white transition-all"
+                                    >
+                                        <Download className="h-5 w-5" />
+                                    </button>
                                     <button className="p-4 bg-white/5 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all">
                                         <Filter className="h-5 w-5" />
                                     </button>

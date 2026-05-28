@@ -22,8 +22,12 @@ export interface Business {
     id: string;
     legalName: string;
     tradeName: string;
-    type: 'Sole Proprietorship' | 'Partnership' | 'Private Limited' | 'Public Limited' | 'LLP';
+    type: 'Sole Proprietorship' | 'Partnership' | 'Private Limited' | 'Public Limited' | 'LLP' | 'HUF' | 'Trust' | 'Section 8 Company';
     address: string;
+    pincode?: string;
+    state?: string;
+    district?: string;
+    taluk?: string;
     branchName?: string;
     contactNumber: string;
     email: string;
@@ -50,6 +54,7 @@ export interface Business {
     // Municipality Tax Fields
     assessment_number?: string;
     water_connection_no?: string;
+    eb_service_number?: string;
     property_tax_status?: 'Paid' | 'Pending' | 'N/A';
     water_tax_status?: 'Paid' | 'Pending' | 'N/A';
     professional_tax_status?: 'Paid' | 'Pending' | 'N/A';
@@ -60,6 +65,9 @@ export interface Business {
     municipal_ward?: string;
     nic_category?: string;
     employee_count?: number;
+    udyam_aadhaar?: string;
+    fssai_number?: string;
+    shop_establishment_no?: string;
     application_type?: 'NEW' | 'AMENDMENT' | 'RENEWAL' | 'CANCELLATION';
     sla_deadline_at?: string;
     aadhaar_no?: string; // Masked

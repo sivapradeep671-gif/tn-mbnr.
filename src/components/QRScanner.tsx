@@ -21,6 +21,124 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
     const [xp, setXp] = useState(0);
     const [showArOverlay] = useState(true);
     const [smsSent, setSmsSent] = useState<string | null>(null);
+    const [nfcSupported, setNfcSupported] = useState(false);
+    const [nfcScanning, setNfcScanning] = useState(false);
+
+    useEffect(() => {
+        if ('NDEFReader' in window) {
+            setNfcSupported(true);
+        }
+    }, []);
+
+    const processScanData = async (decodedText: string, cleanup?: () => void) => {
+        if (cleanup) cleanup();
+
+        if (!navigator.geolocation) {
+            const msg = "Enable location";
+            setError(msg);
+            showToast(msg, 'warning');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            try {
+                const { latitude, longitude } = position.coords;
+
+                // --- 1. Server-Side Verification ---
+                try {
+                    const serverResult = await api.post<ScanResult>('/verify-scan', {
+                        token: decodedText,
+                        scannerLocation: { lat: latitude, lng: longitude }
+                    });
+
+                    if (serverResult.status !== 'ERROR' && serverResult.status !== 'INVALID') {
+                        setScanResult(serverResult);
+                        handleScanResult(serverResult);
+                        return;
+                    }
+                } catch (serverError) {
+                    console.warn("Server verification failed, falling back to local...", serverError);
+                }
+
+                // --- 2. Fallback: Local/Mock Verification ---
+                const foundBusiness = businesses.find(b => b.id === decodedText || (b.tradeName || '').toLowerCase() === (decodedText || '').toLowerCase());
+
+                let result: ScanResult;
+                if (foundBusiness && foundBusiness.status === 'Verified') {
+                    result = {
+                        status: 'VALID',
+                        message: "Transaction Secure. Verification Token Valid.",
+                        business: {
+                            name: foundBusiness.tradeName,
+                            legalName: foundBusiness.legalName,
+                            gst: foundBusiness.gstNumber,
+                            id: foundBusiness.id,
+                            lat: latitude,
+                            lng: longitude
+                        }
+                    };
+                } else {
+                    // Dynamic mock verification
+                    result = verifyMockToken(decodedText) as ScanResult;
+                }
+
+                // 3. Look-alike Detection (Fraud Prevention)
+                if (result.status !== 'VALID') {
+                    const suspiciousMatch = businesses.find(b => {
+                        const name = (b.tradeName || '').toLowerCase();
+                        const scan = (decodedText || '').toLowerCase();
+                        return (name.substring(0, 2) === scan.substring(0, 2) &&
+                            Math.abs(name.length - scan.length) <= 2 &&
+                            scan !== name);
+                    });
+
+                    if (suspiciousMatch) {
+                        result.status = 'COUNTERFEIT';
+                        result.message = `FRAUD ALERT: Scanned name "${decodedText}" is suspiciously similar to verified business "${suspiciousMatch.tradeName}". DO NOT PAY.`;
+                    }
+                }
+
+                setScanResult(result);
+                handleScanResult(result);
+
+            } catch {
+                const msg = "Service unavailable";
+                setError(msg);
+                showToast(msg, 'error');
+            }
+        }, (err) => {
+            console.error(err);
+            const msg = "Enable location";
+            setError(msg);
+            showToast(msg, 'warning');
+        });
+    };
+
+    const handleNFCScan = async () => {
+        try {
+            setNfcScanning(true);
+            // @ts-ignore
+            const ndef = new window.NDEFReader();
+            await ndef.scan();
+            showToast('NFC Ready. Tap device to business tag.', 'success');
+            
+            ndef.addEventListener("reading", ({ message }: any) => {
+                for (const record of message.records) {
+                    if (record.recordType === "text") {
+                        const textDecoder = new TextDecoder(record.encoding);
+                        const token = textDecoder.decode(record.data);
+                        processScanData(token);
+                        setNfcScanning(false);
+                        break;
+                    }
+                }
+            });
+        } catch (error) {
+            console.error("NFC Scan Error:", error);
+            showToast("NFC scanning failed or blocked.", 'error');
+            setNfcScanning(false);
+        }
+    };
 
     const handleScanResult = (result: ScanResult) => {
         if (result.status === 'VALID') {
@@ -65,87 +183,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
         );
 
         const onScanSuccess = async (decodedText: string) => {
-            scanner.clear();
-
-            if (!navigator.geolocation) {
-                const msg = "Enable location";
-                setError(msg);
-                showToast(msg, 'warning');
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                try {
-                    const { latitude, longitude } = position.coords;
-
-                    // --- 1. Server-Side Verification ---
-                    try {
-                        const serverResult = await api.post<ScanResult>('/verify-scan', {
-                            token: decodedText,
-                            scannerLocation: { lat: latitude, lng: longitude }
-                        });
-
-                        if (serverResult.status !== 'ERROR' && serverResult.status !== 'INVALID') {
-                            setScanResult(serverResult);
-                            handleScanResult(serverResult);
-                            return;
-                        }
-                    } catch (serverError) {
-                        console.warn("Server verification failed, falling back to local...", serverError);
-                    }
-
-                    // --- 2. Fallback: Local/Mock Verification ---
-                    const foundBusiness = businesses.find(b => b.id === decodedText || (b.tradeName || '').toLowerCase() === (decodedText || '').toLowerCase());
-
-                    let result: ScanResult;
-                    if (foundBusiness && foundBusiness.status === 'Verified') {
-                        result = {
-                            status: 'VALID',
-                            message: "Transaction Secure. Verification Token Valid.",
-                            business: {
-                                name: foundBusiness.tradeName,
-                                legalName: foundBusiness.legalName,
-                                gst: foundBusiness.gstNumber,
-                                id: foundBusiness.id,
-                                lat: latitude,
-                                lng: longitude
-                            }
-                        };
-                    } else {
-                        // Dynamic mock verification
-                        result = verifyMockToken(decodedText) as ScanResult;
-                    }
-
-                    // 3. Look-alike Detection (Fraud Prevention)
-                    if (result.status !== 'VALID') {
-                        const suspiciousMatch = businesses.find(b => {
-                            const name = (b.tradeName || '').toLowerCase();
-                            const scan = (decodedText || '').toLowerCase();
-                            return (name.substring(0, 2) === scan.substring(0, 2) &&
-                                Math.abs(name.length - scan.length) <= 2 &&
-                                scan !== name);
-                        });
-
-                        if (suspiciousMatch) {
-                            result.status = 'COUNTERFEIT';
-                            result.message = `FRAUD ALERT: Scanned name "${decodedText}" is suspiciously similar to verified business "${suspiciousMatch.tradeName}". DO NOT PAY.`;
-                        }
-                    }
-
-                    setScanResult(result);
-                    handleScanResult(result);
-
-                } catch {
-                    const msg = "Service unavailable";
-                    setError(msg);
-                    showToast(msg, 'error');
-                }
-            }, (err) => {
-                console.error(err);
-                const msg = "Enable location";
-                setError(msg);
-                showToast(msg, 'warning');
-            });
+            processScanData(decodedText, () => scanner.clear());
         };
 
         const onScanFailure = (error: Error | string) => {
@@ -160,7 +198,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
         return () => {
             try { scanner.clear(); } catch { /* cleanup */ }
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [businesses, t]);
 
 
@@ -224,6 +261,21 @@ export const QRScanner: React.FC<QRScannerProps> = ({ businesses }) => {
                                 {t.scanner.privacy}
                             </p>
                         </div>
+
+                        {nfcSupported && (
+                            <button
+                                onClick={handleNFCScan}
+                                disabled={nfcScanning}
+                                className={`mt-6 w-full px-6 py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all ${
+                                    nfcScanning 
+                                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30 animate-pulse' 
+                                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20'
+                                }`}
+                            >
+                                <Smartphone className="h-5 w-5" />
+                                {nfcScanning ? 'Listening for NFC Tag...' : 'Tap to Verify (NFC)'}
+                            </button>
+                        )}
                     </div>
                 )}
 

@@ -21,6 +21,13 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [stats] = useState({ total: 156, verified: 150, failed: 6 });
     const [showLicense, setShowLicense] = useState<boolean>(false);
+    const [nfcSupported, setNfcSupported] = useState<boolean>(false);
+
+    useEffect(() => {
+        if ('NDEFReader' in window) {
+            setNfcSupported(true);
+        }
+    }, []);
 
 
 
@@ -34,7 +41,7 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
             const response = await api.get<{ token: string, expiresAt: number }>(`/qr-token/${business.id}`);
             setQrToken(response.token);
             setTimeLeft(Math.max(0, Math.floor((response.expiresAt - Date.now()) / 1000)));
-        } catch (e) {
+        } catch {
             console.warn("[Merchant Authority] Regional Node Unreachable. Switching to Local Peer Verification.");
             // Offline Fallback: Generate a locally signed token
             const offlinePayload = {
@@ -87,6 +94,18 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
             };
             img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
             showToast('QR Code Downloaded', 'success');
+        }
+    };
+
+    const writeToNFC = async () => {
+        try {
+            // @ts-ignore
+            const ndef = new window.NDEFReader();
+            await ndef.write(qrToken);
+            showToast('Successfully wrote token to NFC tag!', 'success');
+        } catch (error) {
+            console.error("NFC Write Error:", error);
+            showToast("Failed to write to NFC tag.", 'error');
         }
     };
 
@@ -245,6 +264,16 @@ export const MerchantDashboard: React.FC<MerchantDashboardProps> = ({ business }
                                             <Smartphone className="h-4 w-4 mx-auto" />
                                         </button>
                                     </div>
+                                    
+                                    {nfcSupported && (
+                                        <button 
+                                            onClick={writeToNFC}
+                                            className="mt-4 w-full p-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg active:scale-95"
+                                        >
+                                            <Zap className="h-4 w-4" />
+                                            Write to NFC Tag
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>

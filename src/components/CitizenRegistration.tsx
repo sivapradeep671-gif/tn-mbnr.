@@ -67,8 +67,9 @@ export const CitizenRegistration: React.FC<CitizenRegistrationProps> = ({ onComp
 
                         <div className="space-y-8">
                             <div className="group/field">
-                                <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest group-focus-within/field:text-blue-500 transition-colors">{t.citizen_reg.labels.aadhaar}</label>
+                                <label htmlFor="aadhaar-input" className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest group-focus-within/field:text-blue-500 transition-colors">{t.citizen_reg.labels.aadhaar}</label>
                                 <input 
+                                    id="aadhaar-input"
                                     type="text" 
                                     required 
                                     placeholder={t.citizen_reg.placeholders.aadhaar} 
@@ -76,8 +77,9 @@ export const CitizenRegistration: React.FC<CitizenRegistrationProps> = ({ onComp
                                 />
                             </div>
                             <div className="group/field">
-                                <label className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest group-focus-within/field:text-blue-500 transition-colors">{t.citizen_reg.labels.mobile}</label>
+                                <label htmlFor="mobile-input" className="block text-[10px] font-black text-slate-500 mb-2 uppercase tracking-widest group-focus-within/field:text-blue-500 transition-colors">{t.citizen_reg.labels.mobile}</label>
                                 <input 
+                                    id="mobile-input"
                                     type="tel" 
                                     required 
                                     placeholder={t.citizen_reg.placeholders.mobile} 

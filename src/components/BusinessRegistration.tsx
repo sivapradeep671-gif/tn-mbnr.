@@ -44,6 +44,7 @@ const PATTERNS = {
     gst: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, // Standard 15-char GST format
     contact: /^[6-9]\d{9}$/, // Indian Mobile Number
     address: /^.{10,500}$/, // Min 10 chars
+    pincode: /^[1-9][0-9]{5}$/, // Indian Pincode
 };
 
 // --- Helper Component for Field Validation UI ---
@@ -141,6 +142,10 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
         tradeName: '',
         type: 'Sole Proprietorship',
         address: '',
+        pincode: '',
+        state: 'Tamil Nadu',
+        district: '',
+        taluk: '',
         branchName: '',
         contactNumber: '',
         email: '',
@@ -152,12 +157,16 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
         longitude: undefined,
         assessment_number: '',
         water_connection_no: '',
+        eb_service_number: '',
         property_tax_status: 'Pending',
         water_tax_status: 'Pending',
         professional_tax_status: 'Pending',
         municipal_ward: '',
         nic_category: '',
         employee_count: 0,
+        udyam_aadhaar: '',
+        fssai_number: '',
+        shop_establishment_no: '',
         application_type: 'NEW',
         aadhaar_no: ''
     });
@@ -178,6 +187,12 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
     const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
     const [registeredBusiness, setRegisteredBusiness] = useState<Business | null>(null);
     const [gpsError, setGpsError] = useState<string | null>(null);
+
+    // e-Pramaan Mock State
+    const [showEkycModal, setShowEkycModal] = useState(false);
+    const [ekycOtp, setEkycOtp] = useState('');
+    const [ekycVerified, setEkycVerified] = useState(false);
+    const [ekycLoading, setEkycLoading] = useState(false);
 
     const handleGstSync = async () => {
         if (!formData.gstNumber || errors.gstNumber) {
@@ -205,8 +220,53 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                 }));
                 showToast('Entity data synchronized from GST portal', 'success');
             }
-        } catch (e) {
+        } catch {
              showToast('GST synchronization node interrupted', 'error');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleUdyamSync = async () => {
+        if (!formData.udyam_aadhaar) {
+            showToast('Please enter Udyam Aadhaar number first', 'error');
+            return;
+        }
+        setIsAnalyzing(true);
+        try {
+            const result = await govApiService.fetchUdyamDetails(formData.udyam_aadhaar);
+            if (result) {
+                setFormData(prev => ({
+                    ...prev,
+                    tradeName: result.tradeName,
+                    nic_category: result.nic_category,
+                    type: result.type as Business['type']
+                }));
+                setTouched(prev => ({ ...prev, tradeName: true, nic_category: true, type: true }));
+                showToast('Entity data synchronized from UDYAM portal', 'success');
+            }
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleFssaiSync = async () => {
+        if (!formData.fssai_number) {
+            showToast('Please enter FSSAI number first', 'error');
+            return;
+        }
+        setIsAnalyzing(true);
+        try {
+            const result = await govApiService.fetchFssaiDetails(formData.fssai_number);
+            if (result) {
+                setFormData(prev => ({
+                    ...prev,
+                    legalName: result.legalName,
+                    address: result.address
+                }));
+                setTouched(prev => ({ ...prev, legalName: true, address: true }));
+                showToast('Entity data synchronized from FSSAI portal', 'success');
+            }
         } finally {
             setIsAnalyzing(false);
         }
@@ -251,6 +311,10 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             }
             if (!formData.contactNumber || !PATTERNS.contact.test(formData.contactNumber)) {
                 if (touched.contactNumber) newErrors.contactNumber = "Enter a valid 10-digit Indian mobile number.";
+                valid = false;
+            }
+            if (formData.pincode && !PATTERNS.pincode.test(formData.pincode)) {
+                if (touched.pincode) newErrors.pincode = "Invalid Pincode (must be 6 digits).";
                 valid = false;
             }
 
@@ -305,6 +369,10 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             category: "Food & Beverage",
             gstNumber: "33AABCX7891K1Z5", // Example valid format
             address: "45 Sterling Road, Nungambakkam, Chennai - 600034, Tamil Nadu",
+            pincode: "600034",
+            state: "Tamil Nadu",
+            district: "Chennai",
+            taluk: "Egmore-Nungambakkam",
             branchName: "Main Branch, Nungambakkam",
             contactNumber: "9876543210",
             email: "contact@amrittea.com",
@@ -314,9 +382,13 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             longitude: 80.2496,
             assessment_number: "CHN-05-048-01234",
             water_connection_no: "W-05-048-5678",
+            eb_service_number: "04-123-004567",
             property_tax_status: "Paid",
             water_tax_status: "Pending",
-            professional_tax_status: "Paid"
+            professional_tax_status: "Paid",
+            udyam_aadhaar: "UDYAM-TN-02-1234567",
+            fssai_number: "12421000000123",
+            shop_establishment_no: "TN02S123456"
         });
 
         setTouched({
@@ -406,6 +478,17 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             return;
         }
         setTermsError(false);
+
+        // e-Pramaan Verification Gateway
+        if (!ekycVerified) {
+            if (!formData.aadhaar_no || formData.aadhaar_no.length < 12) {
+                showToast('Please enter a valid 12-digit Aadhaar Number to proceed with e-KYC.', 'error');
+                return;
+            }
+            setShowEkycModal(true);
+            return;
+        }
+
         setIsPaymentProcessing(true);
 
         try {
@@ -433,10 +516,39 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
             showToast('Registration successful - Block added to ledger', 'success');
 
         } catch (error) {
-            console.error("Critical Registration Error:", error);
-            showToast('Registration failed - please verify connection', 'error');
+            console.error("Registration failed:", error);
+            showToast('Failed to register business. Please try again.', 'error');
         } finally {
             setIsPaymentProcessing(false);
+        }
+    };
+
+    const verifyEkyc = async () => {
+        if (ekycOtp.length !== 6) {
+            showToast('OTP must be 6 digits', 'error');
+            return;
+        }
+        setEkycLoading(true);
+        try {
+            const res = await fetch('/api/ekyc/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ aadhaar_no: formData.aadhaar_no, otp: ekycOtp })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setEkycVerified(true);
+                setShowEkycModal(false);
+                showToast('Aadhaar e-KYC verified via e-Pramaan', 'success');
+                // Automatically proceed to payment/registration
+                initiatePayment();
+            } else {
+                showToast(data.message || 'Invalid OTP', 'error');
+            }
+        } catch (err) {
+            showToast('e-KYC gateway error', 'error');
+        } finally {
+            setEkycLoading(false);
         }
     };
 
@@ -573,7 +685,7 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                             value={formData.type || 'Sole Proprietorship'}
                             onChange={handleInputChange}
                             onBlur={handleBlur}
-                            options={['Sole Proprietorship', 'Partnership', 'Private Limited', 'Public Limited', 'LLP']}
+                            options={['Sole Proprietorship', 'Partnership', 'Private Limited', 'Public Limited', 'LLP', 'HUF', 'Trust', 'Section 8 Company']}
                         />
                         <InputField
                             type="select"
@@ -643,6 +755,38 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                         </div>
                     </div>
 
+                    {/* National Compliances Section */}
+                    <div className="glass-card bg-white/[0.02] p-8 rounded-[2rem] border-white/5 relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-orange-500 opacity-20" />
+                        <h3 className="text-xl h-display mb-4 flex items-center gap-3">
+                            <ShieldCheck className="h-6 w-6 text-orange-500" />
+                            National <span className="text-glow">Compliances</span>
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div className="relative group/udyam">
+                                <InputField label="Udyam Aadhaar" name="udyam_aadhaar" value={formData.udyam_aadhaar || ''} onChange={handleInputChange} onBlur={handleBlur} placeholder="UDYAM-TN-XX-XXXXXXX" />
+                                <button
+                                    onClick={handleUdyamSync}
+                                    className="absolute right-12 top-[34px] p-2 bg-orange-500 rounded-lg text-slate-950 hover:bg-white transition-all shadow-lg active:scale-95 group-hover/udyam:translate-x-0 z-10"
+                                    title="Fetch from UDYAM Registry"
+                                >
+                                    <Search className="h-4 w-4" />
+                                </button>
+                            </div>
+                            <div className="relative group/fssai">
+                                <InputField label="FSSAI License No." name="fssai_number" value={formData.fssai_number || ''} onChange={handleInputChange} onBlur={handleBlur} placeholder="14-digit FSSAI" />
+                                <button
+                                    onClick={handleFssaiSync}
+                                    className="absolute right-12 top-[34px] p-2 bg-orange-500 rounded-lg text-slate-950 hover:bg-white transition-all shadow-lg active:scale-95 group-hover/fssai:translate-x-0 z-10"
+                                    title="Fetch from FSSAI Registry"
+                                >
+                                    <Search className="h-4 w-4" />
+                                </button>
+                            </div>
+                            <InputField label="Shop & Est. Act No." name="shop_establishment_no" value={formData.shop_establishment_no || ''} onChange={handleInputChange} onBlur={handleBlur} placeholder="State Registration No" />
+                        </div>
+                    </div>
+
                     {/* Document Management Section */}
                     <div className="glass-card bg-white/[0.02] p-8 rounded-[2rem] border-white/5 relative overflow-hidden group">
                         <div className="absolute top-0 left-0 w-full h-1 bg-green-500 opacity-20" />
@@ -696,6 +840,13 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                         touched={touched.address}
                         placeholder={t.register.placeholders.address}
                     />
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-[-10px] mb-6">
+                        <InputField label="Pincode" name="pincode" value={formData.pincode || ''} onChange={handleInputChange} onBlur={handleBlur} error={errors.pincode} touched={touched.pincode} placeholder="e.g. 600034" />
+                        <InputField label="State" name="state" value={formData.state || ''} onChange={handleInputChange} onBlur={handleBlur} placeholder="Tamil Nadu" />
+                        <InputField label="District" name="district" value={formData.district || ''} onChange={handleInputChange} onBlur={handleBlur} placeholder="Chennai" />
+                        <InputField label="Taluk" name="taluk" value={formData.taluk || ''} onChange={handleInputChange} onBlur={handleBlur} placeholder="Egmore" />
+                    </div>
 
                     {/* Map Section */}
                     <div>
@@ -763,6 +914,14 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                                 onChange={handleInputChange}
                                 onBlur={handleBlur}
                                 placeholder="e.g., W-05-048-5678"
+                            />
+                            <InputField
+                                label="EB Service / TNEB No."
+                                name="eb_service_number"
+                                value={formData.eb_service_number || ''}
+                                onChange={handleInputChange}
+                                onBlur={handleBlur}
+                                placeholder="e.g., 04-123-004567"
                             />
                         </div>
                     </div>
@@ -909,6 +1068,40 @@ export const BusinessRegistration: React.FC<BusinessRegistrationProps> = ({ onRe
                     )}
                 </div>
             </div>
+            {showEkycModal && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in p-4">
+                    <div className="bg-slate-900 border border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl relative">
+                        <button onClick={() => setShowEkycModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+                            <X className="h-5 w-5" />
+                        </button>
+                        <div className="flex justify-center mb-6">
+                            <div className="p-4 bg-blue-500/10 rounded-full border border-blue-500/20">
+                                <ShieldCheck className="h-8 w-8 text-blue-500" />
+                            </div>
+                        </div>
+                        <h3 className="text-xl font-display text-white text-center mb-2">e-Pramaan Verification</h3>
+                        <p className="text-xs text-slate-400 text-center mb-6">An OTP has been sent to the mobile number registered with Aadhaar {formData.aadhaar_no}.</p>
+                        
+                        <div className="space-y-4">
+                            <input 
+                                type="text"
+                                placeholder="Enter 6-digit OTP (Try: 123456)"
+                                maxLength={6}
+                                value={ekycOtp}
+                                onChange={(e) => setEkycOtp(e.target.value)}
+                                className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-center tracking-[0.5em] font-black text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                            <button 
+                                onClick={verifyEkyc}
+                                disabled={ekycLoading || ekycOtp.length !== 6}
+                                className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-black uppercase tracking-widest text-xs py-3 rounded-xl transition-all"
+                            >
+                                {ekycLoading ? <Loader className="h-4 w-4 animate-spin mx-auto" /> : 'Verify Identity'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

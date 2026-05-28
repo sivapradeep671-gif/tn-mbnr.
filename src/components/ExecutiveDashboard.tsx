@@ -1,17 +1,13 @@
 import React, { useMemo } from 'react';
 import { 
     Users, 
-    BarChart3, 
     ShieldAlert, 
     TrendingUp, 
     Landmark, 
-    Map as MapIcon,
     ArrowUpRight,
     ArrowDownRight,
-    Search,
     Download,
     Zap,
-    TrendingDown,
     AlertCircle,
     Bot
 } from 'lucide-react';
@@ -23,7 +19,7 @@ interface ExecutiveDashboardProps {
     reports: CitizenReport[];
 }
 
-export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ businesses, reports }) => {
+export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ businesses }) => {
     const { t, language } = useLanguage();
 
     // Dynamic KPI Calculation
@@ -90,12 +86,19 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ business
     // Dynamic Ward Analysis
     const wardPerformance = useMemo(() => {
         const wards = ['W01', 'W04', 'W08', 'W12', 'W15'];
+        // Use a deterministic seed from ward name instead of Math.random() (impure)
+        const deterministicBase = (ward: string) => {
+            let h = 0;
+            for (let i = 0; i < ward.length; i++) h = (h * 31 + ward.charCodeAt(i)) & 0xffff;
+            return h;
+        };
         return wards.map(w => {
             const wardBusinesses = businesses.filter(b => b.address?.includes(w) || b.id.includes(w));
             const count = wardBusinesses.length;
             const verified = wardBusinesses.filter(b => b.status === 'Verified').length;
-            const compliance = count > 0 ? (verified / count) * 100 : Math.floor(Math.random() * 20) + 75;
-            const revenue = count > 0 ? `₹${(count * 0.8).toFixed(1)}M` : `₹${(Math.random() * 5 + 5).toFixed(1)}M`;
+            const seed = deterministicBase(w);
+            const compliance = count > 0 ? (verified / count) * 100 : (seed % 20) + 75;
+            const revenue = count > 0 ? `₹${(count * 0.8).toFixed(1)}M` : `₹${((seed % 500) / 100 + 5).toFixed(1)}M`;
             
             return {
                 ward: `${w} - Strategic Node`,

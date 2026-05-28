@@ -42,6 +42,10 @@ export default defineConfig(() => ({
           }
         ]
       },
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
       manifest: {
         short_name: 'TrustRegTN',
         name: 'TN-MBNR TrustReg TN Pilot',
@@ -50,8 +54,8 @@ export default defineConfig(() => ({
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: '.',
+        start_url: '.',
         icons: [
           {
             src: 'logo.png',

@@ -22,7 +22,7 @@ This document outlines the strategic roadmap for the TrustReg TN platform, movin
     - Transition from the internal `blockchain.cjs` simulation to a permissioned blockchain (e.g., Hyperledger Fabric) or a stable L2 (Polygon/Base).
 
 ### 🟡 Priority 2: Robust Mobility
-1.  **Mobile Progressive Web App (PWA)** (In Progress)
+1.  **Mobile Progressive Web App (PWA)** (Done)
     - Service worker implementation for offline verification capabilities.
     - "Add to Home Screen" support for shopkeepers to access their dashboard like a native app.
 2.  **Advanced QR Scanning**

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 
 /**
@@ -31,24 +31,30 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [theme, setTheme] = useState<ThemeMode>('government');
-
-  // Auto-switch theme based on user role
-  useEffect(() => {
+  const [theme, setTheme] = useState<ThemeMode>(() => {
     if (user) {
       const customerRoles = ['business', 'citizen'];
-      const govRoles = ['admin', 'inspector', 'executive', 'scrutiny_officer', 'approver'];
-      
       if (customerRoles.includes(user.role)) {
-        setTheme('customer');
-      } else if (govRoles.includes(user.role)) {
-        setTheme('government');
+        return 'customer';
       }
-    } else {
-      // Default to government theme for the landing page (showcases authority)
+    }
+    return 'government';
+  });
+
+  const [prevUser, setPrevUser] = useState(user);
+
+  if (user !== prevUser) {
+    setPrevUser(user);
+    if (user) {
+      const customerRoles = ['business', 'citizen'];
+      const targetTheme = customerRoles.includes(user.role) ? 'customer' : 'government';
+      if (theme !== targetTheme) {
+        setTheme(targetTheme);
+      }
+    } else if (theme !== 'government') {
       setTheme('government');
     }
-  }, [user]);
+  }
 
   // Apply data-theme attribute to document for CSS theming
   useEffect(() => {
@@ -67,6 +73,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   return useContext(ThemeContext);
 }

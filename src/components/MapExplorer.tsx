@@ -1,7 +1,7 @@
 import React from 'react'; 
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Search, Map as MapIcon, Filter, Layers, MapPin, ShieldCheck, Activity } from 'lucide-react';
+import { Search, Map as MapIcon, Layers, MapPin, ShieldCheck, Activity } from 'lucide-react';
 import type { Business, CitizenReport } from '../types/types';
 import { useLanguage } from '../context/LanguageContext';
 import { VoiceInput } from './VoiceInput';

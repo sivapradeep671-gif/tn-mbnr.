@@ -8,6 +8,18 @@ interface GstData {
     status: 'ACTIVE' | 'INACTIVE';
 }
 
+interface UdyamData {
+    tradeName: string;
+    nic_category: string;
+    type: string;
+}
+
+interface FssaiData {
+    legalName: string;
+    address: string;
+    status: 'ACTIVE' | 'EXPIRED';
+}
+
 /**
  * TrustReg TN Government API Bridge
  * Simulates integration with GSTN and UDYAM portals.
@@ -35,6 +47,42 @@ export const govApiService = {
         }
 
         showToast('GST Number not found in TN Regional Grid', 'error');
+        return null;
+    },
+
+    /**
+     * Fetches business data from the National UDYAM portal
+     */
+    fetchUdyamDetails: async (udyamNo: string): Promise<UdyamData | null> => {
+        console.log(`[Gov API Bridge] Fetching UDYAM data for: ${udyamNo}`);
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        if (udyamNo.toUpperCase().startsWith('UDYAM')) {
+            return {
+                tradeName: "TN Ventures",
+                nic_category: "Manufacturing",
+                type: "Private Limited"
+            };
+        }
+        showToast('UDYAM Registration not found', 'error');
+        return null;
+    },
+
+    /**
+     * Fetches business data from the FSSAI Food Safety portal
+     */
+    fetchFssaiDetails: async (fssaiNo: string): Promise<FssaiData | null> => {
+        console.log(`[Gov API Bridge] Fetching FSSAI data for: ${fssaiNo}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (fssaiNo.length === 14) {
+            return {
+                legalName: "AUTHENTIC TAMIL NADU VENTURES PVT LTD",
+                address: "Plot 12, SIDCO Industrial Estate, Guindy, Chennai - 600032",
+                status: 'ACTIVE'
+            };
+        }
+        showToast('Invalid FSSAI License Number', 'error');
         return null;
     },
 

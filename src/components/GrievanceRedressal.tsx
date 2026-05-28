@@ -60,10 +60,10 @@ export const GrievanceRedressal: React.FC<GrievanceRedressalProps> = ({ business
     const fetchGrievances = async () => {
         setLoading(true);
         try {
-            const res = await api.get<any>('/api/grievances');
+            const res = await api.get<{ data: Grievance[] }>('/api/grievances');
             setGrievances(res.data || []);
-        } catch (err) {
-            console.error('Failed to load grievances', err);
+        } catch {
+            console.error('Failed to load grievances');
         } finally {
             setLoading(false);
         }
@@ -79,7 +79,7 @@ export const GrievanceRedressal: React.FC<GrievanceRedressalProps> = ({ business
 
         setSubmitting(true);
         try {
-            const res = await api.post<any>('/api/grievances', {
+            const res = await api.post<{ grievanceId: string; estimatedResolution: string }>('/api/grievances', {
                 business_id: selectedBusiness,
                 business_name: business?.tradeName || '',
                 grievance_type: grievanceType,
@@ -100,7 +100,7 @@ export const GrievanceRedressal: React.FC<GrievanceRedressalProps> = ({ business
             setDescription('');
             fetchGrievances();
             setView('list');
-        } catch (err) {
+        } catch {
             showToast(isEn ? 'Submission failed' : 'சமர்ப்பிப்பு தோல்வி', 'error');
         } finally {
             setSubmitting(false);

@@ -14,9 +14,11 @@ import { Mail, Shield, Zap, AlertTriangle } from 'lucide-react';
 import { useLanguage } from './context/LanguageContext';
 import type { GlobalHandlers } from './types/types';
 import { SaaSProvider, useSaaS } from './context/SaaSContext';
+import { AccessibilityToolbar } from './components/AccessibilityToolbar';
 
 // Tell TypeScript about our custom window properties
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface Window extends GlobalHandlers {}
 }
 
@@ -104,13 +106,27 @@ function AppContent() {
     checkBackend();
   }, []);
 
-  // View protection & Role-based routing
+  // Strict View protection & Role-based routing
   useEffect(() => {
+    const publicViews = ['HOME', 'MAP', 'SCAN', 'REGISTRY', 'HEALTH_SCORE', 'MARKETPLACE', 'PRICING', 'LOGIN', 'REGISTER_CITIZEN', 'REGISTER', 'REPORT', 'GRIEVANCE'];
+    
+    // If not logged in and trying to access a protected view, redirect to login
+    if (!user && !publicViews.includes(currentView)) {
+      setTimeout(() => setCurrentView('LOGIN'), 0);
+      return;
+    }
+
     if (user) {
-      if (user.role === 'citizen' && (currentView === 'REGISTER' || currentView === 'DASHBOARD')) {
+      // Citizen restrictions
+      if (user.role === 'citizen' && ['DASHBOARD', 'INSPECTOR_DASHBOARD', 'EXECUTIVE_DASHBOARD', 'SAAS_ADMIN'].includes(currentView)) {
         setTimeout(() => setCurrentView('HOME'), 0);
       }
-      if (user.role === 'business' && currentView === 'REPORT') {
+      // Business restrictions
+      if (user.role === 'business' && ['REPORT', 'INSPECTOR_DASHBOARD', 'EXECUTIVE_DASHBOARD', 'SAAS_ADMIN'].includes(currentView)) {
+        setTimeout(() => setCurrentView('HOME'), 0);
+      }
+      // Inspector restrictions
+      if (user.role === 'inspector' && ['EXECUTIVE_DASHBOARD', 'SAAS_ADMIN'].includes(currentView)) {
         setTimeout(() => setCurrentView('HOME'), 0);
       }
     }
@@ -223,6 +239,7 @@ function AppContent() {
       
       {/* Universal Priority Banner Stack */}
       <div className="fixed top-0 left-0 w-full z-[60] flex flex-col">
+        <AccessibilityToolbar />
         <div className="w-full bg-yellow-500/95 text-slate-900 text-[9px] font-black py-1.5 px-4 text-center tracking-[0.3em] uppercase border-b border-yellow-600/20">
           {t.footer.disclaimer_banner} | {currentTenant.name} Platform v{APP_VERSION}
         </div>
@@ -275,7 +292,6 @@ function AppContent() {
       </footer>
       <FeedbackButton />
       <Suspense fallback={null}>
-        <DemoControls />
       </Suspense>
     </div>
   );

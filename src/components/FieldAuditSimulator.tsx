@@ -16,7 +16,7 @@ export const FieldAuditSimulator: React.FC<FieldAuditSimulatorProps> = ({ busine
     const [selectedId, setSelectedId] = useState<string>('');
     const [distanceOffset, setDistanceOffset] = useState<number>(0);
     const [isPulsing, setIsPulsing] = useState(false);
-    const [auditResult, setAuditResult] = useState<any>(null);
+    const [auditResult, setAuditResult] = useState<{ status: string; message: string; proof?: string; distance?: number } | null>(null);
     const [simulatedPath, setSimulatedPath] = useState<string[]>([]);
 
     const verifiedBusinesses = businesses.filter(b => b.status === 'Verified');
@@ -41,7 +41,7 @@ export const FieldAuditSimulator: React.FC<FieldAuditSimulatorProps> = ({ busine
             const lat = baseLat + (distanceOffset / 111111);
             const lng = baseLng;
 
-            const res = await api.post<any>('/verify-scan', {
+            const res = await api.post<{ status: string; message: string; proof?: string }>('/verify-scan', {
                 token: targetBusiness.id,
                 scannerLocation: { lat, lng },
                 mode: 'AUDIT_DRILL'
@@ -157,7 +157,7 @@ export const FieldAuditSimulator: React.FC<FieldAuditSimulatorProps> = ({ busine
                             ))}
                         </div>
                     </div>
-                ) : (
+                ) : auditResult ? (
                     <div className="w-full space-y-8 animate-in zoom-in-95 duration-500">
                         <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center ${
                             auditResult.status === 'VALID' ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
@@ -195,7 +195,8 @@ export const FieldAuditSimulator: React.FC<FieldAuditSimulatorProps> = ({ busine
                             </pre>
                         </div>
                     </div>
-                )}
+                ) : null}
+
             </div>
         </div>
     );

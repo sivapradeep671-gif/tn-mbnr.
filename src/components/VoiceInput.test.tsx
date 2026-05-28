@@ -22,8 +22,19 @@ vi.mock('../context/LanguageContext', () => ({
     })
 }));
 
+interface MockRecognition {
+    start: ReturnType<typeof vi.fn>;
+    onstart: (() => void) | null;
+    onresult: ((event: { results: { transcript: string }[][] }) => void) | null;
+    onerror: ((event: { error: string }) => void) | null;
+    onend: (() => void) | null;
+    lang: string;
+    interimResults: boolean;
+    maxAlternatives: number;
+}
+
 // Mock SpeechRecognition API
-const createMockRecognition = () => ({
+const createMockRecognition = (): MockRecognition => ({
     start: vi.fn(),
     onstart: null,
     onresult: null,
@@ -38,14 +49,16 @@ describe('VoiceInput Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         // Reset global recognition mocks
-        (window as any).webkitSpeechRecognition = vi.fn().mockImplementation(createMockRecognition);
-        (window as any).SpeechRecognition = undefined;
+        const win = window as unknown as Record<string, unknown>;
+        win.webkitSpeechRecognition = vi.fn().mockImplementation(createMockRecognition);
+        win.SpeechRecognition = undefined;
     });
 
     it('should NOT render if SpeechRecognition is not supported', () => {
         // Use delete to properly remove properties from window
-        delete (window as any).webkitSpeechRecognition;
-        delete (window as any).SpeechRecognition;
+        const win = window as unknown as Record<string, unknown>;
+        delete win.webkitSpeechRecognition;
+        delete win.SpeechRecognition;
 
         const { container } = render(<VoiceInput onResult={() => {}} />);
         expect(container.firstChild).toBeNull();
@@ -59,9 +72,10 @@ describe('VoiceInput Component', () => {
 
     it('should start listening when clicked', async () => {
         const onResult = vi.fn();
-        let instance: any;
+        let instance: MockRecognition | undefined;
+        const win = window as unknown as Record<string, unknown>;
 
-        (window as any).webkitSpeechRecognition = vi.fn().mockImplementation(() => {
+        win.webkitSpeechRecognition = vi.fn().mockImplementation(() => {
             instance = createMockRecognition();
             return instance;
         });
@@ -71,21 +85,25 @@ describe('VoiceInput Component', () => {
 
         fireEvent.click(button);
 
-        expect(instance.start).toHaveBeenCalled();
+        expect(instance).toBeDefined();
+        if (instance) {
+            expect(instance.start).toHaveBeenCalled();
 
-        // Simulate onstart
-        await act(async () => {
-            if (instance.onstart) instance.onstart();
-        });
+            // Simulate onstart
+            await act(async () => {
+                if (instance?.onstart) instance.onstart();
+            });
+        }
 
         expect(button.className).toContain('animate-pulse');
     });
 
     it('should call onResult and show success toast when speech is received', async () => {
         const onResult = vi.fn();
-        let instance: any;
+        let instance: MockRecognition | undefined;
+        const win = window as unknown as Record<string, unknown>;
 
-        (window as any).webkitSpeechRecognition = vi.fn().mockImplementation(() => {
+        win.webkitSpeechRecognition = vi.fn().mockImplementation(() => {
             instance = createMockRecognition();
             return instance;
         });
@@ -98,9 +116,12 @@ describe('VoiceInput Component', () => {
             results: [[{ transcript: 'Hello Gemini' }]]
         };
 
-        await act(async () => {
-            if (instance.onresult) instance.onresult(mockResultEvent);
-        });
+        expect(instance).toBeDefined();
+        if (instance) {
+            await act(async () => {
+                if (instance?.onresult) instance.onresult(mockResultEvent);
+            });
+        }
 
         expect(onResult).toHaveBeenCalledWith('Hello Gemini');
         expect(showToast).toHaveBeenCalledWith('Speech captured', 'success');
@@ -108,9 +129,10 @@ describe('VoiceInput Component', () => {
 
     it('should handle errors gracefully', async () => {
         const onResult = vi.fn();
-        let instance: any;
+        let instance: MockRecognition | undefined;
+        const win = window as unknown as Record<string, unknown>;
 
-        (window as any).webkitSpeechRecognition = vi.fn().mockImplementation(() => {
+        win.webkitSpeechRecognition = vi.fn().mockImplementation(() => {
             instance = createMockRecognition();
             return instance;
         });
@@ -119,10 +141,14 @@ describe('VoiceInput Component', () => {
         fireEvent.click(screen.getByRole('button'));
 
         // Simulate onerror
-        await act(async () => {
-            if (instance.onerror) instance.onerror({ error: 'not-allowed' });
-        });
+        expect(instance).toBeDefined();
+        if (instance) {
+            await act(async () => {
+                if (instance?.onerror) instance.onerror({ error: 'not-allowed' });
+            });
+        }
 
         expect(showToast).toHaveBeenCalledWith('Speech error: not-allowed', 'error');
     });
 });
+

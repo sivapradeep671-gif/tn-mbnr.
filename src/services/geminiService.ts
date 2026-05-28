@@ -76,19 +76,19 @@ class GeminiService {
                 Role: Senior Municipal Auditor for Tamil Nadu (TN-MBNR).
                 Task: Analyze this citizen fraud report: "${report.description}".
                 
-                Risk Matrix:
-                - CRITICAL: Public health hazard, illegal signage in government zones, or large-scale tax evasion.
-                - HIGH: Expired licenses with active trading, trademark infringement of local heritage brands.
-                - MEDIUM: Location mismatch (>200m), minor documentation discrepancies.
-                - LOW: General inquiries or non-critical formatting issues.
+                TN State Law Compliance Risk Matrix:
+                - CRITICAL: Violations of Tamil Nadu Public Health Act, 1939 (e.g., severe hygiene, adulteration) or extreme TN Shops & Establishments Act violations (e.g., severe safety hazards).
+                - HIGH: FSSAI non-compliance, lack of TN Pollution Control Board (TNPCB) clearance, or trademark infringement of regional heritage brands (e.g., A2B, Saravana Bhavan).
+                - MEDIUM: Location mismatch (>200m), failure to display Tamil name boards (mandated by TN Shops and Establishments Rules), or pending trade license renewal under TN District Municipalities Act.
+                - LOW: General inquiries, formatting issues, or cosmetic non-compliance.
 
                 Context: ${report.category || 'General Business Compliance'}.
 
                 Return JSON schema EXACTLY: { 
                   "severity": "Low"|"Medium"|"High"|"Critical", 
                   "urgency": number(1-10), 
-                  "summary": "Concise professional summary in English",
-                  "tamil_summary": "Concise professional summary in Tamil (தமிழ்)"
+                  "summary": "Concise professional summary in English citing potential TN law violations",
+                  "tamil_summary": "Concise professional summary in Tamil (தமிழ்) citing potential TN law violations"
                 }
             `;
 

@@ -64,7 +64,7 @@ export const PublicRegistry: React.FC<PublicRegistryProps> = ({ businesses }) =>
                                 {business.status?.toUpperCase() ?? 'UNKNOWN'}
                             </div>
                             <div className="mt-2 text-xs text-slate-500">
-                                Registered on: {new Date(business.registrationDate).toLocaleDateString()}
+                                Registered on: {new Date(business.registrationDate).toLocaleDateString('en-IN')}
                             </div>
                         </div>
                     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Database, Activity, ShieldCheck, Zap, AlertTriangle, MapPin, Bot, Search, Smartphone } from 'lucide-react';
+import { LayoutDashboard, Database, Activity, ShieldCheck, Zap, AlertTriangle, MapPin, Bot, Search, Smartphone, Download } from 'lucide-react';
 import { aiService } from '../services/geminiService';
 import type { Business, CitizenReport } from '../types/types';
 import { api } from '../api/client';
@@ -8,6 +8,7 @@ import { AdminAnalytics } from './AdminAnalytics';
 import { ApprovalWorkflow } from './ApprovalWorkflow';
 import { BlockchainLedger } from './BlockchainLedger';
 import { FieldAuditSimulator } from './FieldAuditSimulator';
+import { exportToCSV } from '../utils/export';
 
 interface DashboardProps {
     businesses: Business[];
@@ -145,7 +146,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                     </div>
                 </div>
                 
-                <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5 backdrop-blur-xl">
+                <div className="flex flex-col gap-4">
+                    <div className="self-end">
+                        <button 
+                            onClick={() => exportToCSV(filteredBusinesses, 'tn_mbnr_registry_export')}
+                            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-black transition-all uppercase tracking-widest shadow-lg shadow-emerald-500/20"
+                        >
+                            <Download className="h-4 w-4" />
+                            Export Data
+                        </button>
+                    </div>
+                    <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5 backdrop-blur-xl">
                     <button 
                         onClick={() => setActiveTab('businesses')}
                         className={`px-6 py-2.5 rounded-xl text-xs font-black transition-all uppercase tracking-widest ${activeTab === 'businesses' ? 'bg-white text-slate-950 shadow-2xl' : 'text-slate-400 hover:text-white'}`}
@@ -189,6 +200,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                         Nodes
                     </button>
                 </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
@@ -217,6 +229,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                             Master Asset Registry
                         </h3>
                         <div className="flex items-center gap-6">
+                            <button 
+                                onClick={() => exportToCSV(businesses, 'MBNR_Admin_Export')}
+                                title="Export All Data to Excel / CSV"
+                                className="group/export flex items-center gap-2 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-xl hover:bg-green-500 hover:text-white transition-all active:scale-95"
+                            >
+                                <Download className="h-3 w-3 text-green-500 group-hover/export:text-white" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-green-500 group-hover/export:text-white">Export CSV</span>
+                            </button>
                             <button 
                                 onClick={() => {
                                     setLedgerAssetId(undefined);
@@ -365,7 +385,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ businesses, reports, onUpd
                                                     </span>
                                                 </td>
                                                 <td className="px-8 py-6">
-                                                    <span className="text-[10px] text-slate-500 font-black uppercase">{new Date(biz.registrationDate).toLocaleDateString()}</span>
+                                                    <span className="text-[10px] text-slate-500 font-black uppercase">{new Date(biz.registrationDate).toLocaleDateString('en-IN')}</span>
                                                 </td>
                                                 <td className="px-8 py-6 text-right">
                                                     <button 
